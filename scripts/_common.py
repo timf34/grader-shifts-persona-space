@@ -53,10 +53,13 @@ def experiment_for(args) -> dict:
 
 
 def worker_roles(exp: dict, args) -> list[str] | None:
-    """Roles handled by this worker (None = all). The default control goes to worker 0."""
+    """Roles handled by this worker (None = all). The default control goes to worker 0.
+    Pilot runs (--thinking) partition only the pilot roles, so workers get balanced shares."""
     if args.num_workers <= 1:
         return None
-    roles = partition_roles(list(role_categories(exp)), args.worker, args.num_workers)
+    pool = list(exp["pilot"]["roles"]) if getattr(args, "thinking", None) and not getattr(args, "smoke", False) \
+        else list(role_categories(exp))
+    roles = partition_roles(pool, args.worker, args.num_workers)
     if args.worker == 0:
         roles.append(exp["default_role"])
     return roles

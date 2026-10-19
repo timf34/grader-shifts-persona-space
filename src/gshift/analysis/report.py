@@ -400,6 +400,7 @@ def analyze_model(model_key: str, exp: dict, out_dir: Path | None = None,
                 cells_g[group], metas_g[group] = _group_cells(store, meta, rep, L, group, roles_all, conds, cats, qmeta)
                 dcells_g[group], _ = _group_cells(store, meta, rep, L, group, [droles], conds, {}, qmeta,
                                                   H=cells_g[group].H)
+                save_condition_centroids(out_dir, group, rep, L, cells_g[group], dcells_g[group])
                 wording = np.array([discovery_wording(exp, ranks[u[0]], u[1]) for u in cells_g[group].units])
                 for name, w in exp["contrasts"][group].items():
                     cds[(group, name)] = from_cells(cells_g[group], name, w, group, wording=wording, keep_positions=True)
@@ -488,6 +489,21 @@ def analyze_model(model_key: str, exp: dict, out_dir: Path | None = None,
         plot_sweep(out_dir / "figures", sweep, primary)
     write_json(out_dir / "summary.json", _clean(summary))
     return summary
+
+
+def save_condition_centroids(out_dir: Path, group: str, rep: str, L: int, cells: Cells, dcells: Cells) -> None:
+    """The persona representations themselves (not displacements): mu[r, c] for every role
+    and condition, over discovery and validation questions separately, plus the default
+    control. The graded persona is mu[r, graded]; Delta_r = mu[r, graded] - mu[r, baseline]."""
+    out = {"roles": np.array(cells.roles), "conds": np.array(cells.conds)}
+    for split in ("discovery", "validation"):
+        keep = cells.unit_attr("split") == split
+        if keep.any():
+            out[f"mu_{split}"] = centroids(cells.subset_units(keep)).astype(np.float16)
+            if dcells.N.sum() > 0:
+                dk = dcells.unit_attr("split") == split
+                out[f"mu_default_{split}"] = centroids(dcells.subset_units(dk))[0].astype(np.float16)
+    np.savez(out_dir / "vectors" / f"{group}_{rep}_L{L}_condition_centroids.npz", **out)
 
 
 def _sweep_row(group, rep, L, name, block, refs) -> dict:

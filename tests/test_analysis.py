@@ -103,6 +103,12 @@ def test_planted_structure_recovered(tmp_path, monkeypatch, exp):
     assert (out / "figures" / "sweep_original_resp.png").exists()
     assert (vec / "pooled_resp_L36_auto_minus_baseline.npy").exists()
     assert (vec / "original_resp_L36_baseline_pcs.npy").exists()
+    z = np.load(vec / "checkable_resp_L36_condition_centroids.npz")
+    assert list(z["conds"]) == ["baseline", "auto_correct", "human_correct", "auto_quality", "human_quality"]
+    assert z["mu_discovery"].shape[:2] == (15, 5) and "mu_default_validation" in z
+    bm = np.load(vec / "checkable_resp_L36_betley_matched.npy")
+    assert S.cos(bm, info["u_e"] + 0.8 * info["u_c"]) > 0.9            # evaluator + criterion bundle, as planted
+    assert chk["betley_matched"]["cos_g_betley_repro"] > 0.5
     assert s["descriptives"]["missing_main"]["missing"] == 0
     json.loads((out / "summary.json").read_text())
 

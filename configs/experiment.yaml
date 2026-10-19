@@ -289,6 +289,9 @@ contrasts:
     evaluator_main:   {auto_correct: 0.5, auto_quality: 0.5, human_correct: -0.5, human_quality: -0.5}
     criterion_main:   {auto_correct: 0.5, human_correct: 0.5, auto_quality: -0.5, human_quality: -0.5}
     evaluator_x_criterion: {auto_correct: 1, human_correct: -1, auto_quality: -1, human_quality: 1}
+    # Betley et al.'s 0007 contrast, cell for cell: automated + correctness vs human + quality
+    # (their two sides bundle evaluator and criterion). Compared with the reproduced vector.
+    betley_matched: {auto_correct: 1, human_quality: -1}
 
 pooled_contrasts:
   auto_minus_baseline:
