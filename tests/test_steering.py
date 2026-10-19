@@ -26,7 +26,7 @@ def test_prompt_sets(cfg):
     g = tasks.benchmark_prompts("gsm8k", cfg, exp)
     assert len(g) == 200 and g[0].messages[0]["content"].startswith("Solve the following problem.")
     per = tasks.benchmark_prompts("persona", cfg, exp)
-    assert len(per) == 10 * 20                       # held-out roles x validation questions
+    assert len(per) == 20 * 20                       # held-out roles x validation questions
     cal = tasks.calibration_prompts(cfg, exp)
     q1 = {q["id"] for q in __import__("gshift.config", fromlist=["x"]).load_questions(exp)}
     assert len(cal) == 24 + 20 and not any(p.id.replace("calib_", "orig_") in q1 for p in cal)

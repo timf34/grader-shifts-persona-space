@@ -83,6 +83,12 @@ def role_categories(exp: dict[str, Any]) -> dict[str, str]:
     return {r: cat for cat, roles in exp["roles"].items() for r in roles}
 
 
+def heldout_roles(exp: dict[str, Any]) -> list[str]:
+    """Held-out prompted roles: the original split plus the 100-role expansion's additions."""
+    rs = exp["role_split"]
+    return list(rs["heldout"]) + [r for r in rs.get("heldout_added", []) if r not in rs["heldout"]]
+
+
 def load_questions(exp: dict[str, Any]) -> list[dict[str, Any]]:
     """The versioned manifest rows (id, text, source, group, domain, family, split, ...)."""
     path = Path(exp["question_manifest"])

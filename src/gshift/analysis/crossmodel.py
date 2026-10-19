@@ -20,7 +20,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ..config import load_questions, role_categories
+from ..config import heldout_roles, load_questions, role_categories
 from ..io import outputs_root, write_json
 from . import stats as S
 from .cells import centroids
@@ -208,7 +208,7 @@ def compare_models(model_a: str, model_b: str, exp: dict, out_dir: Path | None =
     both.to_csv(out_dir / "scalars_by_model.csv", index=False)
     L = int(exp["extraction"]["primary_layer"])
     cats = role_categories(exp)
-    held = set(exp["role_split"]["heldout"])
+    held = set(heldout_roles(exp))
     disc_roles = [r for r in cats if r not in held]
     res: dict[str, Any] = {"models": [model_a, model_b], "primary_layer": L, "primary": {},
                            "note": "discovery roles x discovery questions; paired bootstrap = same roles and "

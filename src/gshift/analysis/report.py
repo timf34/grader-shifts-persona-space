@@ -26,7 +26,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ..config import load_questions, role_categories
+from ..config import heldout_roles, load_questions, role_categories
 from ..design import build_requests, discovery_wording, question_ranks
 from ..io import model_dir, outputs_root, write_json
 from . import stats as S
@@ -360,7 +360,7 @@ def analyze_model(model_key: str, exp: dict, out_dir: Path | None = None,
             meta[col] = default
     cats = role_categories(exp)
     roles_all = list(cats)
-    heldout = [r for r in exp["role_split"]["heldout"] if r in cats]
+    heldout = [r for r in heldout_roles(exp) if r in cats]
     disc_roles = [r for r in roles_all if r not in heldout]
     qrows = load_questions(exp)
     qmeta = {q["id"]: q for q in qrows}

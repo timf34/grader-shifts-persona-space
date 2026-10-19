@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from gshift import DATA_DIR
-from gshift.config import load_experiment, load_questions, load_role, role_categories, statement
+from gshift.config import heldout_roles, load_experiment, load_questions, load_role, role_categories, statement
 from gshift.design import build_messages, build_requests, default_wording, discovery_wording, question_ranks
 
 ORIG = ["baseline", "auto", "human"]
@@ -27,11 +27,13 @@ def main(exp):
 
 
 def test_main_grid_size_matches_plan(exp, main):
-    # 50 roles x 5 prompts x (30 x 3 + 30 x 5) + default (1 prompt) x 240
-    assert len(main) == 50 * 5 * (30 * 3 + 30 * 5) + (30 * 3 + 30 * 5) == 60_240
-    assert 2 * len(main) == 120_480                                   # both models
+    # 100 roles x 5 prompts x (30 x 3 + 30 x 5) + default (1 prompt) x 240
+    assert len(main) == 100 * 5 * (30 * 3 + 30 * 5) + (30 * 3 + 30 * 5) == 120_240
+    assert 2 * len(main) == 240_480                                   # both models
     by = collections.Counter((r.question_group, r.condition) for r in main)
-    assert by == {("original", c): 30 * 251 for c in ORIG} | {("checkable", c): 30 * 251 for c in CHK}
+    assert by == {("original", c): 30 * 501 for c in ORIG} | {("checkable", c): 30 * 501 for c in CHK}
+    assert collections.Counter(r.role_split for r in main if r.condition == "baseline") == \
+        {"discovery": 80 * 5 * 60, "heldout": 20 * 5 * 60, "control": 60}
     default = [r for r in main if r.role == "default"]
     assert len(default) == 240 and {r.prompt_variant for r in default} == {0}
     assert all(r.system_prompt is None and r.role_split == "control" for r in default)
@@ -51,9 +53,9 @@ def test_condition_sets_kept_per_group(exp, main):
 
 def test_other_stages(exp, main):
     wv = build_requests(exp, "wording_validation")
-    # 50 x (10 x 2 + 10 x 4) x 2 wordings + default 120; no baseline is regenerated
-    assert len(wv) == 6_120
-    assert collections.Counter(r.wording_id for r in wv) == {"v1": 3_060, "v2": 3_060}
+    # 100 x (10 x 2 + 10 x 4) x 2 wordings + default 120; no baseline is regenerated
+    assert len(wv) == 12_120
+    assert collections.Counter(r.wording_id for r in wv) == {"v1": 6_060, "v2": 6_060}
     assert all(r.condition != "baseline" and r.wording_set == "validation" for r in wv)
     assert all(r.question_split == "validation" and r.prompt_variant == 0 for r in wv)
     assert not ({r.id for r in wv} & {r.id for r in main})            # never collides with main
@@ -70,7 +72,7 @@ def test_other_stages(exp, main):
     assert all(r.baseline_id in mb for r in main if r.condition != "baseline")
     assert all(r.baseline_id is None for r in main if r.condition == "baseline")
     fu = build_requests(exp, "followup")
-    assert len(fu) == 3_060 and {r.condition for r in fu} == {"eval_awareness"}
+    assert len(fu) == 6_060 and {r.condition for r in fu} == {"eval_awareness"}
     assert all(r.user_content == exp["followup_statement"] + "\n\n" + r.question for r in fu)
 
 
@@ -101,11 +103,13 @@ def test_pilot_matches_brief(exp, main):
 
 
 def test_pilot_draws_reproduce(exp):
+    # drawn over the ORIGINAL 50 roles' discovery set (first 10 per category), before the
+    # 100-role expansion; unchanged by it
     held = set(exp["role_split"]["heldout"])
     rng = np.random.default_rng(exp["pilot"]["role_seed"])
     roles = []
     for cat, rs in exp["roles"].items():
-        d = [r for r in rs if r not in held]
+        d = [r for r in rs[:10] if r not in held]
         roles += [d[i] for i in rng.permutation(len(d))[:2]]
     assert roles == exp["pilot"]["roles"]
     rows = load_questions(exp)
@@ -196,7 +200,9 @@ def test_seeds_shared_across_stages(exp, main):
 
 def test_roles_and_prompt_variants(exp):
     cats = role_categories(exp)
-    assert len(cats) == 50 and collections.Counter(cats.values()) == {c: 10 for c in exp["roles"]}
+    assert len(cats) == 100 and collections.Counter(cats.values()) == {c: 20 for c in exp["roles"]}
+    held = heldout_roles(exp)
+    assert len(held) == 20 and collections.Counter(cats[r] for r in held) == {c: 4 for c in exp["roles"]}
     # roles the brief asks for, where present in the source inventory
     assert {"librarian", "evaluator", "examiner", "reviewer", "robot", "hacker", "saboteur"} <= set(cats)
     for r in list(cats) + ["default"]:
@@ -215,16 +221,34 @@ def test_role_swap_reproduces_seeded_draw(exp):
         prev = sw["previous"][cat]
         cand = [r for r in prev if r not in sw["protected"]]
         drop = {cand[i] for i in rng.permutation(len(cand))[:2]}
-        assert exp["roles"][cat] == [r for r in prev if r not in drop] + sw["added"][cat]
+        assert exp["roles"][cat][:10] == [r for r in prev if r not in drop] + sw["added"][cat]
 
 
 def test_heldout_roles_reproduce_seeded_draw(exp):
     rng = np.random.default_rng(exp["role_split"]["seed"])
     held = []
     for cat, roles in exp["roles"].items():
-        p = rng.permutation(len(roles))
-        held += [roles[i] for i in p[: exp["role_split"]["n_heldout_per_category"]]]
+        p = rng.permutation(10)
+        held += [roles[:10][i] for i in p[: exp["role_split"]["n_heldout_per_category"]]]
     assert held == exp["role_split"]["heldout"]
+    rng = np.random.default_rng(exp["role_split"]["expansion_seed"])     # 100-role expansion
+    added = []
+    for cat, roles in exp["roles"].items():
+        added += [roles[10:][i] for i in rng.permutation(10)[:2]]
+    assert added == exp["role_split"]["heldout_added"]
+
+
+def test_role_expansion_reproduces_seeded_draw(exp):
+    ex = exp["role_expansion"]
+    first50 = {r for rs in exp["roles"].values() for r in rs[:10]}
+    pooled = [r for p in ex["pools"].values() for r in p]
+    assert len(pooled) == len(set(pooled)) and not (set(pooled) & first50)
+    assert not (set(pooled) & set(ex["excluded"]))
+    rng = np.random.default_rng(ex["seed"])
+    for cat, rs in exp["roles"].items():
+        pool = ex["pools"][cat]
+        want = [pool[i] for i in sorted(rng.permutation(len(pool))[:10])]
+        assert rs[10:] == want == ex["added"][cat], cat
 
 
 def test_question_manifest(exp):

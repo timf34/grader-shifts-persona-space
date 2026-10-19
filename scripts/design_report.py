@@ -14,7 +14,7 @@ import json
 
 from _common import load_experiment
 
-from gshift.config import load_models, load_questions, manifest_sha, role_categories
+from gshift.config import heldout_roles, load_models, load_questions, manifest_sha, role_categories
 from gshift.design import build_requests
 from gshift.generate import config_identity
 
@@ -53,7 +53,7 @@ def main():
     exp = load_experiment(args.experiment)
     models = load_models()
     cats = role_categories(exp)
-    held = exp["role_split"]["heldout"]
+    held = heldout_roles(exp)
     q = load_questions(exp)
     rep = {
         "design_version": exp["design_version"], "frozen_on": exp["frozen_on"],

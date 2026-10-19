@@ -33,6 +33,7 @@ def small_experiment() -> dict:
     e = copy.deepcopy(load_experiment())
     e["roles"] = SMALL_ROLES
     e["role_split"]["heldout"] = ["researcher", "counselor", "competitor", "designer", "ghost"]
+    e["role_split"]["heldout_added"] = []
     e["prompt_variants"] = [0, 1]
     e["stages"]["main"]["prompt_variants"] = [0, 1]
     e["analysis"].update(n_permutations=60, n_permutations_sweep=30, n_bootstrap=30, n_split_halves=4)

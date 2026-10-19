@@ -16,6 +16,7 @@ def smoke_experiment(exp: dict) -> dict:
     e["roles"] = {c: [r for r in rs if r in keep] for c, rs in e["roles"].items()}
     e["roles"] = {c: rs for c, rs in e["roles"].items() if rs}
     e["role_split"]["heldout"] = ["robot"]
+    e["role_split"]["heldout_added"] = []
     e["question_filter"] = list(SMOKE_QUESTIONS)
     for st in e["stages"].values():
         st["prompt_variants"] = [v for v in st["prompt_variants"] if v in (0, 1)] or [0]

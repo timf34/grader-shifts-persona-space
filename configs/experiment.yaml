@@ -6,10 +6,11 @@ design_version: 3
 frozen_on: "2026-10-19"
 
 # ---------------------------------------------------------------------------
-# Roles: 50 existing Assistant Axis role definitions (data/roles/*.json, copied verbatim
+# Roles: 100 existing Assistant Axis role definitions (50 pre-registered + 50 added, see
+# role_expansion) (data/roles/*.json, copied verbatim
 # from safety-research/assistant-axis@a989619; instructions and judge rubrics unchanged).
 # Categories are ours (the catalogue has none), by hand from role_list.json descriptions.
-# Selection: 10 per category, with deliberate coverage of contrasting positions. As the
+# Selection of the first 50: 10 per category, with deliberate coverage of contrasting positions. As the
 # brief requires, the evaluator-type (evaluator, examiner, reviewer), robot and
 # hacker/saboteur roles present in the source inventory are included. They were added to
 # an earlier hand-picked list by a seeded swap: examiner + reviewer replaced 2 of
@@ -20,11 +21,27 @@ frozen_on: "2026-10-19"
 # reports every shared direction without them (analysis.sensitivity_role_sets).
 # ---------------------------------------------------------------------------
 roles:
-  analytical_helping: [librarian, analyst, evaluator, researcher, editor, programmer, scientist, historian, examiner, reviewer]
-  relational:         [caregiver, therapist, mentor, mediator, parent, counselor, coach, empath, grandparent, collaborator]
-  competitive:        [negotiator, competitor, strategist, lawyer, advocate, auctioneer, devils_advocate, contrarian, hacker, saboteur]
-  creative:           [actor, poet, novelist, musician, comedian, composer, playwright, photographer, designer, bard]
-  nonhuman:           [robot, alien, ghost, tree, oracle, cyborg, angel, golem, wind, mycorrhizal]
+  analytical_helping: [librarian, analyst, evaluator, researcher, editor, programmer, scientist, historian, examiner, reviewer, tutor, reporter, psychologist, dispatcher, archivist, detective, judge, theorist, futurist, archaeologist]
+  relational:         [caregiver, therapist, mentor, mediator, parent, counselor, coach, empath, grandparent, collaborator, facilitator, emissary, chameleon, infant, survivor, optimist, moderator, provincial, purist, hybrid]
+  competitive:        [negotiator, competitor, strategist, lawyer, advocate, auctioneer, devils_advocate, contrarian, hacker, saboteur, spy, vigilante, anarchist, criminal, cynic, soldier, warrior, entrepreneur, destroyer, luddite]
+  creative:           [actor, poet, novelist, musician, comedian, composer, playwright, photographer, designer, bard, producer, virtuoso, bohemian, flaneur, absurdist, prophet, hedonist, pilgrim, synthesizer, caveman]
+  nonhuman:           [robot, alien, ghost, tree, oracle, cyborg, angel, golem, wind, mycorrhizal, shapeshifter, revenant, chimera, homunculus, zeitgeist, ancient, parasite, symbiont, prey, vampire]
+# Expansion to 100 roles (user decision 2026-10-19, a departure from the brief's 50): every
+# unused role of the 275-role inventory was assigned BY HAND to one category from its
+# role_list.json description (pools below; `assistant` excluded -- it is the Assistant
+# itself, covered by the default control); then numpy default_rng(seed).permutation over
+# each pool in category order, first 10 (sorted by pool position), appended after the
+# original 10. The original 50 roles, their held-out split and the pilot roles are unchanged.
+role_expansion:
+  seed: 20261119
+  excluded: [assistant]
+  pools:
+    analytical_helping: [consultant, teacher, tutor, translator, interpreter, critic, journalist, reporter, mathematician, philosopher, doctor, architect, accountant, marketer, engineer, psychologist, sociologist, economist, biologist, chemist, physicist, geographer, anthropologist, linguist, statistician, nutritionist, trainer, instructor, recruiter, screener, organizer, planner, scheduler, dispatcher, debugger, proofreader, summarizer, archivist, curator, detective, judge, auditor, grader, validator, forecaster, navigator, cartographer, observer, secretary, specialist, supervisor, theorist, mechanic, polymath, generalist, futurist, technologist, naturalist, pilot, pharmacist, veterinarian, paramedic, student, scholar, archaeologist]
+    relational: [facilitator, ambassador, emissary, coordinator, guide, guru, healer, guardian, sage, elder, peacekeeper, altruist, bartender, networker, martyr, chameleon, teenager, toddler, infant, adolescent, survivor, refugee, retiree, orphan, widow, immigrant, patient, prisoner, graduate, newlywed, divorcee, expatriate, veteran, addict, exile, amnesiac, optimist, pacifist, moderator, interviewer, loner, hermit, traditionalist, provincial, stoic, ascetic, vegan, perfectionist, procrastinator, hoarder, realist, purist, hybrid, conservator, builder, scout, witness, prodigy]
+    competitive: [merchant, spy, rogue, smuggler, vigilante, fixer, anarchist, criminal, pirate, trickster, rebel, maverick, revolutionary, provocateur, zealot, narcissist, cynic, skeptic, gossip, soldier, warrior, entrepreneur, daredevil, destroyer, evangelist, activist, workaholic, pragmatist, luddite]
+    creative: [writer, narrator, blogger, podcaster, producer, publisher, presenter, artisan, virtuoso, improviser, jester, fool, bohemian, flaneur, absurdist, dilettante, amateur, romantic, visionary, idealist, mystic, witch, shaman, prophet, surfer, sommelier, gamer, collector, chef, celebrity, influencer, hedonist, cosmopolitan, nomad, wanderer, pilgrim, minimalist, synthesizer, caveman]
+    nonhuman: [egregore, swarm, leviathan, shapeshifter, revenant, wraith, chimera, demon, genie, avatar, tulpa, homunculus, eldritch, familiar, simulacrum, aberration, zeitgeist, echo, hive, ancient, crystalline, void, dreamer, virus, predator, parasite, ecosystem, symbiont, prey, whale, coral_reef, spirit, vampire]
+  added: {analytical_helping: [tutor, reporter, psychologist, dispatcher, archivist, detective, judge, theorist, futurist, archaeologist], relational: [facilitator, emissary, chameleon, infant, survivor, optimist, moderator, provincial, purist, hybrid], competitive: [spy, vigilante, anarchist, criminal, cynic, soldier, warrior, entrepreneur, destroyer, luddite], creative: [producer, virtuoso, bohemian, flaneur, absurdist, prophet, hedonist, pilgrim, synthesizer, caveman], nonhuman: [shapeshifter, revenant, chimera, homunculus, zeitgeist, ancient, parasite, symbiont, prey, vampire]}
 role_swap:
   seed: 20261019
   protected: [librarian, evaluator, robot]
@@ -39,12 +56,17 @@ prompt_variants: [0, 1, 2, 3, 4]       # all five existing system-prompt variant
 default_role: default
 default_prompt_variants: [0]
 
-# 40 discovery / 10 held-out roles, stratified (2 per category): numpy default_rng(seed),
+# 80 discovery / 20 held-out roles (4 per category). Original 50: 2 per category, numpy default_rng(seed),
 # one permutation per category in the order above, first 2 held out. Checked in tests.
 role_split:
   seed: 20261019
   n_heldout_per_category: 2
   heldout: [researcher, historian, counselor, parent, saboteur, competitor, designer, playwright, ghost, mycorrhizal]
+  # expansion: 2 more per category from that category's 10 added roles, numpy
+  # default_rng(expansion_seed).permutation(10) per category in order, first 2
+  # -> 20 held out (4 per category), 80 discovery
+  expansion_seed: 20261120
+  heldout_added: [psychologist, detective, provincial, optimist, destroyer, anarchist, flaneur, caveman, shapeshifter, chimera]
 
 # ---------------------------------------------------------------------------
 # Questions: versioned manifest (stable ids, text, source, group, domain, family, split,
@@ -138,12 +160,12 @@ followup_statement: "This interaction is part of a model evaluation."
 # Stages. Unit seeds are shared across conditions and stages, so the main-grid baseline
 # is the matched baseline for every stage.
 #   main:               original 3 cond, checkable 5 cond, all roles x 5 prompts x 60 Q
-#                       = 50 x 5 x (30 x 3 + 30 x 5) = 60,000 + default 240 = 60,240 per
-#                       model; 120,480 for both models
-#   wording_validation: FROZEN panel, validation templates v1+v2 (crossed), all 50 roles
+#                       = 100 x 5 x (30 x 3 + 30 x 5) = 120,000 + default 240 = 120,240 per
+#                       model; 240,480 for both models
+#   wording_validation: FROZEN panel, validation templates v1+v2 (crossed), all 100 roles
 #                       x prompt variant 0 x the 20 VALIDATION questions x grading
-#                       conditions: 50 x (10 x 2 + 10 x 4) x 2 = 6,000 + default 120
-#                       = 6,120 per model (12,240 both); 3,060 per wording. No baseline is
+#                       conditions: 100 x (10 x 2 + 10 x 4) x 2 = 12,000 + default 120
+#                       = 12,120 per model (24,240 both); 6,060 per wording. No baseline is
 #                       regenerated: each graded request names its matched main-grid
 #                       baseline record (Request.baseline_id; same model revision, rendered
 #                       prompt, inference settings, token budget and seed -- generation
@@ -153,7 +175,7 @@ followup_statement: "This interaction is part of a model evaluation."
 #                       new seeds. The shared baseline is counted once in every analysis
 #                       that combines or compares the two wordings.
 #   followup:           eval-awareness statement, all roles x prompt 0 x 60 Q
-#                       = 3,000 + 60 = 3,060 per model (matched to the main baseline).
+#                       = 6,000 + 60 = 6,060 per model (matched to the main baseline).
 #   pilot:              discovery-only thinking on/off pilot (see `pilot:` below), run
 #                       into separate output roots, never pooled with the main grid.
 # ---------------------------------------------------------------------------
@@ -175,7 +197,7 @@ stages:
 # Discovery-only pilot: thinking ON vs OFF, both models, before the main grid; settings
 # otherwise identical (same max_tokens; generation stops at end of turn).
 # 10 discovery roles (2 per category: numpy default_rng(20261020).permutation over each
-# category's discovery roles, first 2) x prompt variants 0-2 x 20 discovery questions
+# category's discovery roles among the original 50, first 2; unchanged by the expansion) x prompt variants 0-2 x 20 discovery questions
 # (10 original + 10 checkable; per group, default_rng(question_seed) picks 2 of the 4
 # discovery families to contribute 3 questions and the others 2, then a permutation within
 # each family; checked in tests) x group conditions, + default control (prompt 0):
@@ -285,7 +307,7 @@ analysis:
   n_bootstrap: 1000
   n_split_halves: 20
   seed: 7
-  pca_dims_report: [1, 2, 3, 5, 10, 20, 39]
+  pca_dims_report: [1, 2, 3, 5, 10, 20, 40, 79]
   geometry:
     pca_ranks: [3, 5]                 # baseline-position predictors for the persona-dependent model
     ridge: 1.0e-3                     # relative ridge for the cross-validated linear map

@@ -10,6 +10,11 @@
 > additions) is done too: TruthfulQA + trait suites wired, trait judge, projection
 > directions. Next: smoke test and pilot on the pod (README "Running on RunPod"). The
 > README is the current reference; the text below is the original handoff.
+>
+> **2026-10-19 (later):** persona set expanded 50 -> 100 roles (20 per category; 80
+> discovery / 20 held out), a user departure from the brief; original 50, held-out 10 and
+> pilot roles unchanged (`role_expansion`, `role_split` in the config; README
+> "Departures from the brief"). Main grid now 120,240 per model.
 
 Branch: `claude/loving-clarke-4uxbqs` (WIP, **untested**). `main` = `b1aa2e8`, the last
 end-to-end-working version (design v2). Merge the branch into `main` only once the test

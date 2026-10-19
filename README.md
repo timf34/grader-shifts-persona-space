@@ -1,7 +1,7 @@
 # Grading-induced shifts in persona space
 
 Code for "Exp 1. Split Brain + Assistant": does telling Qwen3.6-27B and Qwen3.8-27B (thinking
-mode) that a response will be graded add a shared activation shift across 50 Assistant Axis
+mode) that a response will be graded add a shared activation shift across 100 Assistant Axis
 personas, compress the differences between them, or move them in a way that depends on
 where they start (Q1)? And does steering along the recovered directions change behaviour
 (Q2, EasySteer)? These experiments test context-dependent behavioural modes; they cannot
@@ -14,12 +14,12 @@ balance and the config ids.
 
 ## Design at a glance
 
-* **Roles**: 50 Assistant Axis role definitions (verbatim from
-  `safety-research/assistant-axis@a989619`), 10 per category (analytical/helping,
+* **Roles**: 100 Assistant Axis role definitions (verbatim from
+  `safety-research/assistant-axis@a989619`), 20 per category (analytical/helping,
   relational, competitive, creative, nonhuman), including the evaluator-type
   (evaluator, examiner, reviewer), robot and hacker/saboteur roles; all 5 prompt variants;
   plus an unprompted default-Assistant control (no system message), analysed separately.
-  40 discovery / 10 held-out roles, stratified (2 per category, seeded).
+  80 discovery / 20 held-out roles, stratified (4 per category, seeded).
 * **Questions**: `data/questions/manifest_v1.jsonl`, 30 original extraction questions + 30
   objectively checkable tasks (coding, arithmetic, structured data); per group 20
   discovery / 10 validation, validation = whole question families.
@@ -35,9 +35,9 @@ balance and the config ids.
 
 | stage | per model | both models |
 |---|---:|---:|
-| main (50 x 5 x (30 x 3 + 30 x 5) + default 240) | 60,240 | 120,480 |
-| wording_validation (v1 + v2, validation questions, prompt 0; baselines reused from main) | 6,120 | 12,240 |
-| followup ("This interaction is part of a model evaluation.", prompt 0) | 3,060 | 6,120 |
+| main (100 x 5 x (30 x 3 + 30 x 5) + default 240) | 120,240 | 240,480 |
+| wording_validation (v1 + v2, validation questions, prompt 0; baselines reused from main) | 12,120 | 24,240 |
+| followup ("This interaction is part of a model evaluation.", prompt 0) | 6,060 | 12,120 |
 | pilot, per thinking arm (10 discovery roles x 3 prompts x 10 + 10 questions + 80 default) | 2,480 | 4,960 |
 | pilot total (2 arms x 2 models) | | 9,920 |
 
@@ -197,15 +197,23 @@ then `python -m pytest tests -q -p no:warnings`.
 
 ## Departures from the brief
 
-* Wording-validation panel = validation questions x prompt variant 0 x all 50 roles (6,120
+* Wording-validation panel = validation questions x prompt variant 0 x all 100 roles (12,120
   per model). Its baselines are the matched main-grid records, referenced explicitly and
   counted once in every combined or comparative analysis (the combined estimate averages
   v1 and v2 within a unit before subtracting the baseline; v1 vs v2 is compared
   graded-to-graded). A replication across generation seeds would rerun baseline and
   graded conditions with new seeds; it is not scheduled.
-* Roles: the brief's named roles are included; examiner, reviewer, hacker and saboteur
-  replaced 4 roles of an earlier hand-picked list by a seeded swap (documented in the
-  config). Grader-type and adversarial roles are also reported as leave-out sensitivity
+* Roles: 100 instead of the brief's 50 (user decision 2026-10-19), for more personas in
+  the persona-space geometry, held-out generalisation and the position-dependence (H3)
+  test; cost ~2x the main grid. The original 50, their 10 held-out roles and the 10 pilot
+  roles are unchanged. The 50 added roles are a seeded draw (`default_rng(20261119)`) of 10
+  per category from hand-assigned category pools of the rest of the 275-role inventory
+  (`assistant` excluded: it is the Assistant itself); 2 more per category are held out
+  (`default_rng(20261120)`). Pools and draws are in the config (`role_expansion`,
+  `role_split`).
+* Roles (original 50): the brief's named roles are included; examiner, reviewer, hacker
+  and saboteur replaced 4 roles of an earlier hand-picked list by a seeded swap
+  (documented in the config). Grader-type and adversarial roles are also reported as leave-out sensitivity
   analyses.
 * Default-Assistant control: its own question-level wording assignment (rank within
   question group mod 3, 10/10/10 per group), since it has one prompt variant.
@@ -223,9 +231,9 @@ then `python -m pytest tests -q -p no:warnings`.
 
 ## Known limitations
 
-* Our Assistant contrast is a 40-role subset estimate (default control minus mean role),
-  not the original 275-role Assistant Axis; PC1 is only called Assistant-aligned above
-  `analysis.assistant_alignment_threshold`.
+* Our Assistant contrast is an 80-role subset estimate (default control minus mean of the
+  80 discovery roles), not the original 275-role Assistant Axis; PC1 is only called
+  Assistant-aligned above `analysis.assistant_alignment_threshold`.
 * A direction outside our sampled persona PCA subspace is not thereby outside all persona
   representations.
 * Judge blinding is partial: the answer itself may reveal the condition.

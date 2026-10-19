@@ -19,7 +19,7 @@ import hashlib
 from dataclasses import asdict, dataclass
 from typing import Any, Iterator
 
-from .config import condition_def, load_questions, load_role, role_categories, statement
+from .config import condition_def, heldout_roles, load_questions, load_role, role_categories, statement
 
 
 @dataclass(frozen=True)
@@ -154,7 +154,7 @@ def iter_requests(exp: dict[str, Any], stage: str, roles: list[str] | None = Non
         st = exp["stages"][stage]
     thinking = bool(exp["generation"]["enable_thinking"]) if enable_thinking is None else bool(enable_thinking)
     cats = role_categories(exp)
-    heldout = set(exp["role_split"]["heldout"])
+    heldout = set(heldout_roles(exp))
     all_q = load_questions(exp)
     ranks = question_ranks(all_q)
     granks = question_ranks(all_q, ("group",))
