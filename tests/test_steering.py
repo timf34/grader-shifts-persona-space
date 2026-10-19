@@ -313,3 +313,22 @@ def test_openrouter_judge_client(monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY")
     with pytest.raises(RuntimeError, match="OPENROUTER_API_KEY"):
         make_client(cfg)
+
+
+def test_judge_main_grid_only_and_batch_items(tmp_path, monkeypatch):
+    """Judging the main grid only skips wording-validation / follow-up records; the batch
+    judge builds the same prompts and skip rows as the live judge."""
+    monkeypatch.setenv("GSHIFT_OUTPUTS", str(tmp_path))
+    from gshift.io import append_jsonl, read_jsonl, responses_path, scores_path
+    from gshift.judge_batch import collect_items
+
+    rows = [{"id": "a", "question_id": "q", "question": "Q?", "answer_text": "A.", "has_answer": True, "wording_set": "discovery"},
+            {"id": "b", "question_id": "q", "question": "Q?", "answer_text": "A.", "has_answer": True, "wording_set": "validation"},
+            {"id": "c", "question_id": "q", "question": "Q?", "answer_text": "", "has_answer": False, "wording_set": "none"}]
+    p = responses_path("toy", "auto", "robot")
+    p.parent.mkdir(parents=True)
+    append_jsonl(p, rows)
+    items, n_skip = collect_items("toy", [("auto", "robot")], "default")
+    assert [i["id"] for i in items] == ["a"] and n_skip == 1
+    assert "Q?" in items[0]["prompt"] and "A." in items[0]["prompt"]
+    assert [r["skipped"] for r in read_jsonl(scores_path("toy", "auto", "robot"))] == ["no_answer"]

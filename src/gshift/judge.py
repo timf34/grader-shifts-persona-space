@@ -136,9 +136,11 @@ async def _score_all(client: JudgeClient, items: list[dict], concurrency: int, m
 
 
 def run_judge(model_key: str, pairs: list[tuple[str, str]], judge_cfg: dict[str, Any],
-              default_role: str = "default", limit: int | None = None) -> int:
+              default_role: str = "default", limit: int | None = None,
+              wording_sets: tuple[str, ...] | None = None) -> int:
     """Score every (condition, role) response file in `pairs` -> scores/<role>.jsonl.
-    The default-Assistant control has no role rubric and is not judged."""
+    The default-Assistant control has no role rubric and is not judged. `wording_sets`
+    restricts judging (e.g. ("discovery", "none") = the main grid only)."""
     from .io import responses_path, scores_path
 
     items, n_skip = [], 0
@@ -148,6 +150,8 @@ def run_judge(model_key: str, pairs: list[tuple[str, str]], judge_cfg: dict[str,
         skipped = []
         for rec in read_jsonl(responses_path(model_key, cond, role)):
             if rec["id"] in done:
+                continue
+            if wording_sets is not None and rec.get("wording_set", "none") not in wording_sets:
                 continue
             base = {"id": rec["id"], "role": role, "condition": cond, "question_id": rec["question_id"]}
             if role == default_role:

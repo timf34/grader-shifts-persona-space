@@ -16,10 +16,14 @@ def main():
     p = base_parser(__doc__)
     p.add_argument("--conditions", nargs="+", default=None)
     p.add_argument("--limit", type=int, default=None)
+    p.add_argument("--all-stages", action="store_true",
+                   help="also judge wording-validation and follow-up records (default: main grid only; "
+                        "the adherence analyses read only the main grid)")
     args = p.parse_args()
     exp = experiment_for(args)
     pairs = [(c, r) for c in (args.conditions or conditions_present(args.model)) for r in roles_present(args.model, c)]
-    run_judge(args.model, pairs, exp["judge"], exp["default_role"], args.limit)
+    run_judge(args.model, pairs, exp["judge"], exp["default_role"], args.limit,
+              None if args.all_stages else ("discovery", "none"))
 
 
 if __name__ == "__main__":
