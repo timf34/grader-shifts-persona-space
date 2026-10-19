@@ -22,7 +22,7 @@ MAX_HOURS="${MAX_HOURS:-48}"
 source "$(dirname "$0")/_lib.sh"
 pod_init "${RP_JOB:-q1}" "$MODEL"
 STAGES="${STAGES:-main wording_validation followup}"
-JUDGE_FLAG=""; [ -n "${OPENAI_API_KEY:-}" ] && JUDGE_FLAG="--judge"
+JUDGE_FLAG=""; judge_ready && JUDGE_FLAG="--judge"
 TP_FLAG=""; [ "$GEN_TP" -gt 1 ] && TP_FLAG="--tensor-parallel-size $GEN_TP"
 
 step "preflight"

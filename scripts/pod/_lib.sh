@@ -138,6 +138,17 @@ on_exit() {
 
 finish() { exit "${1:-0}"; }   # the EXIT trap does the rest
 
+judge_ready() {  # 0 if the API key of the configured role-adherence judge is set
+  local env
+  env=$($PY - <<'PY'
+import yaml
+p = yaml.safe_load(open("configs/experiment.yaml"))["judge"]["provider"]
+print({"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY", "openrouter": "OPENROUTER_API_KEY"}[p])
+PY
+)
+  [ -n "${!env:-}" ]
+}
+
 doctor() {  # doctor <need_gb> [--judge]
   local need="$1"; shift
   $PY -u scripts/pod/doctor.py --models "$MODEL" --need-gb "$need" --shutdown "${SHUTDOWN:-}" --pod-id "${POD_ID:-}" "$@" \

@@ -52,8 +52,10 @@ its `# rp-min-cuda: 12.8` header is enforced). Results go to the HF dataset in
 changed); nothing is kept on network volumes.
 
 `.env` (copy `.env.example`, never commit it): `HF_TOKEN`, `HF_DATASET_REPO`,
-`OPENAI_API_KEY` (role-adherence judge), `ANTHROPIC_API_KEY` (Q2 judges), and
-`RUNPOD_API_KEY` (lets an unattended job stop its own pod).
+`OPENROUTER_API_KEY` (role-adherence judge: `openai/gpt-4.1-mini`, the Assistant Axis
+judge, through OpenRouter pinned to OpenAI; `judge` in configs/experiment.yaml can switch
+provider/model), `ANTHROPIC_API_KEY` (Q2 judges), and `RUNPOD_API_KEY` (lets an
+unattended job stop its own pod).
 
 ```bash
 # 1. a pod: ~55 GB of weights per model + two venvs + outputs need --volume-size >= 150

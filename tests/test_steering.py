@@ -277,3 +277,39 @@ def test_behaviour_report_heldout_suites(tmp_path, cfg):
          and x["condition"] == "ours_resp_+0.2"][0]
     assert e["diff"] == pytest.approx(30.0) and e["diff_lo"] > 25
     assert s["trait_summary"]["ours_resp_+0.2"]["extraversion"]["n_scored"] == 20
+
+
+def test_openrouter_judge_client(monkeypatch):
+    """The role-adherence judge through OpenRouter: base URL, key, model and the pinned route."""
+    import asyncio
+    import types
+
+    import openai
+
+    from gshift.judge import OPENROUTER_URL, make_client
+
+    seen = {}
+
+    class FakeChat:
+        async def create(self, **kw):
+            seen["call"] = kw
+            return types.SimpleNamespace(choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="3"))])
+
+    class FakeClient:
+        def __init__(self, **kw):
+            seen["init"] = kw
+            self.chat = types.SimpleNamespace(completions=FakeChat())
+
+    monkeypatch.setattr(openai, "AsyncOpenAI", FakeClient)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-test")
+    cfg = load_experiment()["judge"]
+    assert (cfg["provider"], cfg["model"], cfg["route"]) == ("openrouter", "openai/gpt-4.1-mini", ["OpenAI"])
+    c = make_client(cfg)
+    assert asyncio.run(c("prompt")) == "3"
+    assert seen["init"] == {"base_url": OPENROUTER_URL, "api_key": "or-test"}
+    call = seen["call"]
+    assert call["model"] == "openai/gpt-4.1-mini" and call["max_tokens"] == 10 and call["temperature"] == 1.0
+    assert call["extra_body"] == {"provider": {"order": ["OpenAI"], "allow_fallbacks": False}}
+    monkeypatch.delenv("OPENROUTER_API_KEY")
+    with pytest.raises(RuntimeError, match="OPENROUTER_API_KEY"):
+        make_client(cfg)

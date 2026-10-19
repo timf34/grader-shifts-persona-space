@@ -36,16 +36,30 @@ def build_judge_prompt(role: str, question: str, answer: str) -> str:
     return tmpl.replace("{question}", question).replace("{answer}", answer)
 
 
+KEY_ENV = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY", "openrouter": "OPENROUTER_API_KEY"}
+OPENROUTER_URL = "https://openrouter.ai/api/v1"
+
+
 class JudgeClient:
-    def __init__(self, provider: str, model: str, max_tokens: int, temperature: float | None):
+    """provider: openai | anthropic | openrouter (OpenAI-compatible; `route` pins the upstream
+    provider order with fallbacks disabled, so every call is served by the same backend)."""
+
+    def __init__(self, provider: str, model: str, max_tokens: int, temperature: float | None,
+                 route: list[str] | None = None, reasoning_effort: str | None = None):
         self.provider = provider
         self.model = model
         self.max_tokens = max_tokens
         self.temperature = temperature
+        self.route = list(route or [])
+        self.reasoning_effort = reasoning_effort
         if provider == "openai":
             import openai
 
             self.client = openai.AsyncOpenAI()
+        elif provider == "openrouter":
+            import openai
+
+            self.client = openai.AsyncOpenAI(base_url=OPENROUTER_URL, api_key=os.environ.get("OPENROUTER_API_KEY"))
         elif provider == "anthropic":
             import anthropic
 
@@ -54,9 +68,19 @@ class JudgeClient:
             raise ValueError(f"unknown judge provider {provider!r}")
 
     async def __call__(self, prompt: str) -> str | None:
-        if self.provider == "openai":
-            kw: dict[str, Any] = dict(model=self.model, messages=[{"role": "user", "content": prompt}],
-                                      max_completion_tokens=self.max_tokens)
+        if self.provider in ("openai", "openrouter"):
+            kw: dict[str, Any] = dict(model=self.model, messages=[{"role": "user", "content": prompt}])
+            if self.provider == "openai":
+                kw["max_completion_tokens"] = self.max_tokens
+            else:
+                kw["max_tokens"] = self.max_tokens
+                extra: dict[str, Any] = {}
+                if self.route:
+                    extra["provider"] = {"order": self.route, "allow_fallbacks": False}
+                if self.reasoning_effort:
+                    extra["reasoning"] = {"effort": self.reasoning_effort}
+                if extra:
+                    kw["extra_body"] = extra
             if self.temperature is not None:
                 kw["temperature"] = self.temperature
             r = await self.client.chat.completions.create(**kw)
@@ -143,13 +167,17 @@ def run_judge(model_key: str, pairs: list[tuple[str, str]], judge_cfg: dict[str,
     print(f"[judge] {len(items)} to score, {n_skip} skipped (default role / no answer)", flush=True)
     if not items:
         return 0
-    key_env = "OPENAI_API_KEY" if judge_cfg["provider"] == "openai" else "ANTHROPIC_API_KEY"
-    if not os.environ.get(key_env):
-        raise RuntimeError(f"{key_env} is not set (put it in .env)")
-    client = JudgeClient(judge_cfg["provider"], judge_cfg["model"], int(judge_cfg.get("max_tokens", 10)),
-                         judge_cfg.get("temperature"))
+    client = make_client(judge_cfg)
     asyncio.run(_score_all(client, items, int(judge_cfg.get("concurrency", 32))))
     return len(items)
+
+
+def make_client(judge_cfg: dict[str, Any]) -> JudgeClient:
+    key_env = KEY_ENV[judge_cfg["provider"]]
+    if not os.environ.get(key_env):
+        raise RuntimeError(f"{key_env} is not set (put it in .env)")
+    return JudgeClient(judge_cfg["provider"], judge_cfg["model"], int(judge_cfg.get("max_tokens", 10)),
+                       judge_cfg.get("temperature"), judge_cfg.get("route"), judge_cfg.get("reasoning_effort"))
 
 
 def latest_scores(path: Path) -> dict[str, dict]:

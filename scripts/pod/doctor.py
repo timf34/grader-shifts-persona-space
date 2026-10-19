@@ -87,18 +87,17 @@ def main() -> int:
         return f"{repo} (token of {who.get('name')})"
 
     def judge():
+        import asyncio
+
         from gshift.config import load_experiment
+        from gshift.judge import make_client
 
         cfg = load_experiment()["judge"]
-        if cfg["provider"] == "openai":
-            assert os.environ.get("OPENAI_API_KEY"), "OPENAI_API_KEY unset"
-            from openai import OpenAI
-
-            r = OpenAI().chat.completions.create(model=cfg["model"], max_tokens=1,
-                                                 messages=[{"role": "user", "content": "Say 1"}])
-            return f"{cfg['model']} answered ({r.choices[0].message.content!r})"
-        assert os.environ.get("ANTHROPIC_API_KEY"), "ANTHROPIC_API_KEY unset"
-        return "anthropic key set"
+        client = make_client(cfg)                   # raises if the provider's key is unset
+        reply = asyncio.run(client("Reply with the single digit 3."))
+        assert reply and reply.strip(), f"empty reply from {cfg['provider']}:{cfg['model']}"
+        route = f" via {cfg.get('route')}" if cfg.get("route") else ""
+        return f"{cfg['provider']}:{cfg['model']}{route} answered {reply.strip()[:20]!r}"
 
     def self_stop():
         if not args.shutdown:
