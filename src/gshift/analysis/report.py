@@ -35,7 +35,7 @@ from .contrast import ContrastData, bootstrap, disp, from_cells, permutation_nul
 from .data import Store
 from .geometry import geometry_report
 from .shared import alignment_null, crossfit_dz, family_leave_one_out, split_half_stability, wording_stability
-from .space import captured_fraction, pca_fit, project
+from .space import captured_fraction, pairwise_distances, pca_fit, project
 
 GROUPS = ("original", "checkable")
 
@@ -152,6 +152,40 @@ def default_block(dcd: ContrastData | None, D_roles: np.ndarray, roles: list[str
             "mean_role_cos_with_default": float(np.nanmean([p["cos_with_default"] for p in per])), "per_role": per}
 
 
+def min_matched_pairs(exp: dict, group: str, split: str) -> int:
+    """Secondary-analysis threshold for one question group and split (configs judge block:
+    an int for every panel, or {group: {split: n}})."""
+    v = exp["judge"].get("min_matched_pairs_per_role", 50)
+    if isinstance(v, dict):
+        v = v[group]
+        if isinstance(v, dict):
+            v = v[split]
+    return int(v)
+
+
+def role_sensitivity_block(cd: ContrastData, g: np.ndarray, sets: dict[str, list[str]]) -> dict:
+    """The shared direction re-estimated without a set of discovery roles (e.g. grader-type
+    roles, which may interact with the grading contrast)."""
+    out = {}
+    for name, drop in sets.items():
+        keep = [r for r in cd.roles if r not in set(drop)]
+        removed = [r for r in cd.roles if r in set(drop)]
+        if len(keep) < 3:
+            out[name] = {"skipped": "fewer than 3 roles left"}
+            continue
+        if not removed:
+            out[name] = {"skipped": "none of these roles among the discovery roles"}
+            continue
+        D = disp(cd.subset_roles(keep))
+        gs = D.mean(0)
+        o = S.gram_stats(D @ D.T)
+        out[name] = {"removed": removed, "n_roles": len(keep), "cos_with_g": S.cos(gs, g),
+                     "norm_ratio": float(np.linalg.norm(gs) / np.linalg.norm(g)) if np.linalg.norm(g) > 0 else None,
+                     "mean_loo_cos": o["mean_loo_cos"], "removed_roles_mean_cos_with_g_rest":
+                         float(np.nanmean([S.cos(d, gs) for d in disp(cd.subset_roles(removed))]))}
+    return out
+
+
 def adherence_filtered_block(cd: ContrastData, cells: Cells, sc: np.ndarray, weights: dict, thr: float,
                              min_pairs: int, g_primary: np.ndarray) -> dict:
     """Secondary: units where EVERY involved condition's response meets the adherence criterion."""
@@ -207,7 +241,10 @@ def persona_space(cells_by_group: dict[str, Cells], dcells_by_group: dict[str, C
     B = np.mean(mus, 0)
     pca = pca_fit(B)
     ks = list(cfg["pca_dims_report"])
-    rep: dict[str, Any] = {"pca_evr": pca["evr"][:10].tolist(), "n_components": int(len(pca["components"]))}
+    rep: dict[str, Any] = {"pca_evr": pca["evr"][:10].tolist(), "n_components": int(len(pca["components"])),
+                           "baseline_rms_spread": float(np.sqrt(((B - B.mean(0)) ** 2).sum(1).mean())),
+                           "baseline_mean_pairwise_distance": float(pairwise_distances(B)[np.triu_indices(len(B), 1)].mean())
+                           if len(B) > 1 else None}
     axis = np.mean(dmus, 0) - B.mean(0) if len(dmus) == len(groups) else None
     if axis is not None:
         pc1 = pca["components"][0]
@@ -216,13 +253,15 @@ def persona_space(cells_by_group: dict[str, Cells], dcells_by_group: dict[str, C
         bs = []
         for _ in range(300):
             idx = rng.integers(0, len(B), len(B))
+            if len(set(idx.tolist())) < 2:          # degenerate resample (tiny role sets): PC1 undefined
+                continue
             p2 = pca_fit(B[idx])
             a2 = np.mean(dmus, 0) - B[idx].mean(0)
             bs.append(abs(S.cos(a2, p2["components"][0])))
         thr = float(cfg.get("assistant_alignment_threshold", 0.5))
         rep["assistant_contrast"] = {
             "norm": float(np.linalg.norm(axis)), "abs_cos_with_pc1": c,
-            "abs_cos_with_pc1_ci": [float(np.quantile(bs, 0.025)), float(np.quantile(bs, 0.975))],
+            "abs_cos_with_pc1_ci": [float(np.quantile(bs, 0.025)), float(np.quantile(bs, 0.975))] if bs else None,
             "abs_cos_with_top5_pcs": [abs(S.cos(axis, v)) for v in pca["components"][:5]],
             "pc1_label": ("Assistant-aligned PC1" if c >= thr else "subset PC1 (NOT Assistant-aligned)"),
             "threshold": thr,
@@ -331,7 +370,6 @@ def analyze_model(model_key: str, exp: dict, out_dir: Path | None = None,
     layers = layers or store.layers
     refs_by_layer = reference_vectors(model_key, layers)
     thr = float(exp["judge"]["role_expressed_threshold"])
-    min_pairs = int(exp["judge"].get("min_matched_pairs_per_role", 50))
     run_groups = [g for g in GROUPS if g in set(meta["question_group"])] if groups is None else \
         [g for g in groups if g in GROUPS]
 
@@ -394,7 +432,8 @@ def analyze_model(model_key: str, exp: dict, out_dir: Path | None = None,
                 if group != "pooled" and metas_g[group]["score"].notna().any():
                     block["adherence_filtered"] = adherence_filtered_block(
                         cd, cells_g[group], score_cube(cells_g[group], metas_g[group]), cd_all._weights, thr,
-                        min_pairs, g)
+                        min_matched_pairs(exp, group, "discovery"), g)
+                block["role_sensitivity"] = role_sensitivity_block(cd, g, cfg.get("sensitivity_role_sets", {}))
                 g_full = disp(cd_all).mean(0)
                 block["exploratory_full"] = {"cos_with_discovery_g": S.cos(g_full, g),
                                              "g_norm": float(np.linalg.norm(g_full))}
@@ -432,8 +471,9 @@ def analyze_model(model_key: str, exp: dict, out_dir: Path | None = None,
             res_L["original_vs_checkable_cos"] = {
                 k: S.cos(gs[("original", a)], gs[("checkable", b)]) for k, (a, b) in pairs.items()
                 if ("original", a) in gs and ("checkable", b) in gs}
-            res_L["validation_wordings"] = validation_wording_block(store, meta, rep, L, exp, roles_all, heldout,
-                                                                    cats, qmeta, gs)
+            res_L["validation_wordings"] = validation_wording_block(
+                store, meta, rep, L, exp, roles_all, heldout, cats, qmeta, gs,
+                n_perm=max(100, int(cfg["n_permutations"]) // (4 if full else 20)), seed=seed + 17)
             res_L["followup"] = followup_block(store, meta, rep, L, exp, disc_roles, cats, qmeta, gs)
             summary["results"][rep][str(L)] = res_L
             msg = ", ".join(f"{gr}/{nm}: |g|/act={b['g_norm_over_act_norm']:.4f} loo={b['observed']['mean_loo_cos']:.3f}"
@@ -471,40 +511,96 @@ def _sweep_row(group, rep, L, name, block, refs) -> dict:
             **{f"cos_g_{k}": block.get(f"cos_g_{k}") for k in refs}}
 
 
-def validation_wording_block(store, meta, rep, L, exp, roles, heldout, cats, qmeta, gs) -> dict:
-    """Reserved wordings (v1, v2) on validation questions, prompt variant 0, matched to the
-    main-grid baseline; compared with the discovery direction of the same contrast."""
-    vm = meta[meta["wording_set"] == "validation"]
+def validation_wording_block(store, meta, rep, L, exp, roles, heldout, cats, qmeta, gs, n_perm: int = 200,
+                             seed: int = 0) -> dict:
+    """Reserved wordings (v1, v2) on validation questions, prompt variant 0, compared with
+    the discovery direction of the same contrast.
+
+    No baseline is regenerated for this panel: every graded record names its matched
+    main-grid baseline record (baseline_id) and is paired with exactly that record. All
+    wordings of a unit share ONE baseline record, so
+      * per-wording contrasts ("<group>|<contrast>|v1", "...|v2") are NOT independent of
+        each other (shared baseline noise) and are reported as such;
+      * the combined estimate ("...|combined") averages the wordings' graded arms within a
+        unit and subtracts the baseline once: one observation per unit, and its sign-flip
+        null flips that single per-unit contrast;
+      * the wording comparison ("...|v1_minus_v2") is graded@v1 - graded@v2, in which the
+        shared baseline cancels exactly.
+    """
+    import itertools
+
+    vm = meta[(meta["wording_set"] == "validation") & meta["role"].isin(roles)]
     if not len(vm):
         return {"skipped": "wording_validation stage not generated"}
+    wids = list(exp["wording_templates"]["validation"])
     out: dict[str, Any] = {}
     for group in GROUPS:
-        conds = list(exp["condition_sets"][group])
-        m = meta[meta["role"].isin(roles) & (meta["question_group"] == group) & (meta["prompt_variant"] == 0)
-                 & (meta["question_split"] == "validation") & meta["condition"].isin(conds)
-                 & ((meta["condition"] == "baseline") | (meta["wording_set"] == "validation"))].copy()
-        if not len(m):
+        gv = vm[vm["question_group"] == group]
+        if not len(gv):
             continue
-        m["condition"] = [c if c == "baseline" else f"{c}@{w}" for c, w in zip(m["condition"], m["wording_id"])]
-        m = m.reset_index(drop=True)
-        vconds = sorted(set(m["condition"]))
+        if "baseline_id" not in gv or gv["baseline_id"].isna().any():
+            raise RuntimeError("wording_validation records without baseline_id: regenerate index with this code")
+        base_ids = set(gv["baseline_id"])
+        b = meta[meta["id"].isin(base_ids)]
+        graded = gv.assign(condition=[f"{c}@{w}" for c, w in zip(gv["condition"], gv["wording_id"])])
+        m = pd.concat([b, graded]).reset_index(drop=True)
+        vconds = ["baseline"] + sorted(set(graded["condition"]))
         cells = build_cells(m, store.rows(rep, L, m), store.valid(rep, m), roles, vconds, cats, qmeta)
-        for wid in exp["wording_templates"]["validation"]:
-            for name, w in exp["contrasts"][group].items():
-                ww = {(c if c == "baseline" else f"{c}@{wid}"): v for c, v in w.items()}
-                if not all(c in vconds for c in ww):
-                    continue
-                cd = from_cells(cells, name, ww, group)
+        out[f"{group}|records"] = {
+            "n_graded_records": int(len(gv)), "n_baseline_records_referenced": len(base_ids),
+            "n_baseline_records_missing": len(base_ids - set(b["id"])),
+            "graded_records_per_baseline": float(len(gv) / max(len(base_ids), 1)),
+            "note": "baselines are the main-grid records named by baseline_id, each counted once"}
+        for name, w in exp["contrasts"][group].items():
+            ref = gs.get((group, name))
+            if ref is None:
+                continue
+            graded_w = {c: v for c, v in w.items() if c != "baseline"}
+
+            def weights(wmap: dict[str, float]) -> dict[str, float]:
+                return {k: v for k, v in wmap.items() if v != 0}
+
+            def summarise(cd: ContrastData) -> dict:
                 D = disp(cd)
                 held = [cd.ri(r) for r in heldout if r in cd.roles]
-                ref = gs.get((group, name))
-                if ref is None:
-                    continue
-                out[f"{group}|{name}|{wid}"] = {
-                    "cos_g_wording_g_discovery": S.cos(D.mean(0), ref),
-                    "cos_heldout_roles_g_discovery": S.cos(D[held].mean(0), ref) if held else None,
-                    "mean_role_cos": float(np.nanmean([S.cos(d, ref) for d in D])),
-                    "norm_ratio": float(np.linalg.norm(D.mean(0)) / np.linalg.norm(ref)) if np.linalg.norm(ref) > 0 else None}
+                g = D.mean(0)
+                return {"cos_g_wording_g_discovery": S.cos(g, ref),
+                        "cos_heldout_roles_g_discovery": S.cos(D[held].mean(0), ref) if held else None,
+                        "mean_role_cos": float(np.nanmean([S.cos(d, ref) for d in D])),
+                        "norm_ratio": float(np.linalg.norm(g) / np.linalg.norm(ref)) if np.linalg.norm(ref) > 0 else None,
+                        "n_units": int(cd.M.any(0).sum()), "_g": g}
+
+            per = {}
+            for wid in wids:
+                ww = weights({(c if c == "baseline" else f"{c}@{wid}"): v for c, v in w.items()})
+                if all(c in vconds for c in ww):
+                    per[wid] = summarise(from_cells(cells, name, ww, group))
+                    per[wid]["shares_baseline_with"] = [x for x in wids if x != wid]
+                    out[f"{group}|{name}|{wid}"] = per[wid]
+            if len(per) < 2:
+                continue
+            # combined: mean over wordings of the graded arms, baseline once per unit
+            ww = weights({**({"baseline": w["baseline"]} if "baseline" in w else {}),
+                          **{f"{c}@{wid}": v / len(wids) for c, v in graded_w.items() for wid in wids}})
+            cd = from_cells(cells, name, ww, group)
+            comb = summarise(cd)
+            comb["null_mean_role_cos"] = alignment_null(cd, ref, n_perm, seed=seed)
+            comb["baseline_reuse"] = "each unit's single baseline record enters once"
+            out[f"{group}|{name}|combined"] = comb
+            # wording differences: baseline cancels
+            for a, bw in itertools.combinations(wids, 2):
+                wd = weights({**{f"{c}@{a}": v for c, v in graded_w.items()},
+                              **{f"{c}@{bw}": -v for c, v in graded_w.items()}})
+                cdd = from_cells(cells, f"{name}:{a}-{bw}", wd, group)
+                Dd = disp(cdd)
+                obs = S.gram_stats(Dd @ Dd.T)
+                nul = S.summarise_null(obs, permutation_null(cdd, n_perm, seed=seed + 1))
+                gc = comb["_g"]
+                out[f"{group}|{name}|{a}_minus_{bw}"] = {
+                    "g_norm_over_combined_g_norm": float(obs["g_norm"] / np.linalg.norm(gc)) if np.linalg.norm(gc) > 0 else None,
+                    "cos_with_g_discovery": S.cos(Dd.mean(0), ref),
+                    "g_norm_p": nul.get("g_norm", {}).get("p_greater"),
+                    "note": "graded@%s - graded@%s; the shared baseline cancels" % (a, bw)}
     return out
 
 

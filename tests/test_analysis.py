@@ -88,6 +88,15 @@ def test_planted_structure_recovered(tmp_path, monkeypatch, exp):
     assert abs(geo["observed"]["separation_ratio"] - 1) < 0.15
     vw = res["validation_wordings"]
     assert vw["original|auto_minus_baseline|v1"]["cos_g_wording_g_discovery"] > 0.9
+    # shared main-grid baseline: counted once; combined estimate and graded-to-graded difference
+    rec = vw["original|records"]
+    assert rec["n_baseline_records_missing"] == 0 and rec["graded_records_per_baseline"] == 4.0
+    assert vw["original|auto_minus_baseline|combined"]["cos_g_wording_g_discovery"] > 0.9
+    assert vw["original|auto_minus_baseline|combined"]["null_mean_role_cos"]["p_greater"] < 0.05
+    assert vw["original|auto_minus_baseline|v1_minus_v2"]["g_norm_p"] > 0.01      # no planted wording effect
+    assert vw["checkable|evaluator_main|v1_minus_v2"]["g_norm_p"] > 0.01
+    sens = o["role_sensitivity"]
+    assert sens["without_grader_type"]["skipped"]                                # not in the small role set
     assert res["followup"]["original"]["cos_g_original|auto_minus_baseline"] > 0.5
     assert "pc1_label" in res["original"]["persona_space"]["assistant_contrast"]
     out = tmp_path / "toy" / "analysis"
@@ -103,7 +112,10 @@ def test_convergence_detected(tmp_path, monkeypatch, exp):
     from gshift.analysis.report import analyze_model
 
     write_synthetic_model("conv", exp, alpha=0.3)
+    exp["analysis"]["sensitivity_role_sets"] = {"without_two": ["librarian", "caregiver"]}
     s = analyze_model("conv", exp, make_plots=False, reps=("resp",), layers=[36], groups=["original"])
+    sens = s["results"]["resp"]["36"]["original"]["auto_minus_baseline"]["role_sensitivity"]["without_two"]
+    assert sens["removed"] == ["librarian", "caregiver"] and sens["n_roles"] == 8 and sens["cos_with_g"] > 0.8
     geo = s["results"]["resp"]["36"]["original"]["auto_minus_baseline"]["geometry"]
     assert geo["observed"]["beta"] < -0.2
     assert geo["observed"]["separation_ratio"] < 0.7
@@ -159,3 +171,33 @@ def test_smoke_grid_analysis_runs(tmp_path, monkeypatch):
     write_synthetic_model("smoke", exp, stages=("main", "wording_validation", "followup"))
     s = analyze_model("smoke", exp, make_plots=True, reps=("pre", "resp"), layers=[36])
     assert s["results"]["resp"]["36"]["original"]["auto_minus_baseline"]["n_roles"] == 3
+
+
+def test_pilot_report_runs(tmp_path):
+    """Both thinking arms, synthetic pilot outputs in the real layout -> pilot_report.py."""
+    import os
+    import subprocess
+    import sys
+
+    from gshift.config import load_experiment
+
+    from conftest import ROOT
+
+    exp = load_experiment()
+    for arm in ("thinking_on", "thinking_off"):
+        os.environ["GSHIFT_OUTPUTS"] = str(tmp_path / arm)
+        try:
+            write_synthetic_model("toy", exp, stages=("pilot",), seed=0 if arm == "thinking_on" else 1)
+        finally:
+            os.environ.pop("GSHIFT_OUTPUTS")
+    out = subprocess.run([sys.executable, str(ROOT / "scripts" / "pilot_report.py"), "--model", "toy",
+                          "--root", str(tmp_path), "--reps", "resp", "--json"],
+                         capture_output=True, text=True, check=True).stdout
+    rep = json.loads((tmp_path / "toy_pilot_report.json").read_text())
+    on = rep["arms"]["thinking_on"]
+    assert on["generation"]["n_records"] == on["generation"]["n_designed"] == 2_480
+    assert on["generation"]["missing"] == 0
+    blk = on["reliability"]["resp"]["original|auto_minus_baseline"]
+    assert blk["n_roles"] == 10 and blk["mean_loo_cos"] > 0.5 and blk["split_half_family_mean_cos"] > 0.8
+    assert rep["thinking_sensitivity_cos_g_on_off"]["resp|original|auto_minus_baseline"] > 0.8
+    assert "thinking ON vs OFF" in out

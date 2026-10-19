@@ -6,8 +6,11 @@ Original questions get [baseline, auto, human]; checkable questions get [baselin
 auto_correct, human_correct, auto_quality, human_quality] (configs/experiment.yaml
 condition_sets). In the main grid each block carries ONE discovery wording template
 (deterministic, balanced; identical across roles, conditions and models), and baseline is
-generated once per block. Request ids include the wording, so the reserved validation
-wordings can never collide with (or be mistaken for) discovery outputs.
+generated once per block. Every graded request names its matched baseline record
+(`baseline_id`, always the main-grid record of the same unit): the wording-validation and
+follow-up stages reuse it rather than regenerating it. Request ids include the wording, so
+the reserved validation wordings can never collide with (or be mistaken for) discovery
+outputs.
 """
 
 from __future__ import annotations
@@ -37,6 +40,8 @@ class Request:
     criterion: str | None          # unspecified | correctness | quality | evaluation_awareness | None
     wording_id: str                # w1..w3 (discovery), v1..v2 (validation), "none" (baseline), "eval"
     wording_set: str               # discovery | validation | none | followup
+    baseline_id: str | None        # id of the matched MAIN-grid baseline record (None for baselines);
+                                   # reused, never regenerated, by wording_validation / followup
     enable_thinking: bool
     sample: int
     seed: int
@@ -84,12 +89,12 @@ def role_instruction(role: str, variant: int, model_short_name: str = "Qwen") ->
     return text.replace("{model_name}", model_short_name)   # literal, never .format
 
 
-def question_ranks(questions: list[dict]) -> dict[str, int]:
-    """Rank of each question within its (group, split), in manifest order."""
-    counters: dict[tuple[str, str], int] = {}
+def question_ranks(questions: list[dict], keys: tuple[str, ...] = ("group", "split")) -> dict[str, int]:
+    """Rank of each question within its (group, split) (or other `keys`), in manifest order."""
+    counters: dict[tuple, int] = {}
     out = {}
     for q in questions:
-        k = (q["group"], q["split"])
+        k = tuple(q[x] for x in keys)
         out[q["id"]] = counters.get(k, 0)
         counters[k] = out[q["id"]] + 1
     return out
@@ -103,7 +108,25 @@ def discovery_wording(exp: dict[str, Any], rank: int, prompt_variant: int) -> st
     return ids[(rank + prompt_variant) % len(ids)]
 
 
-def _select_questions(rows: list[dict], which: str) -> list[dict]:
+def default_wording(exp: dict[str, Any], group_rank: int) -> str:
+    """Default-Assistant control (one prompt variant): its own question-level assignment,
+    discovery[rank within question group mod n], balanced per group."""
+    ids = list(exp["wording_templates"]["discovery"])
+    if exp.get("default_wording_assignment", "group_rank_mod_3") != "group_rank_mod_3":
+        raise ValueError(f"unknown default_wording_assignment {exp.get('default_wording_assignment')!r}")
+    return ids[group_rank % len(ids)]
+
+
+def _select_questions(rows: list[dict], which: str | list[str]) -> list[dict]:
+    """'all' | 'discovery' | 'validation' | an explicit list of manifest ids (kept in
+    manifest order)."""
+    if isinstance(which, (list, tuple)):
+        have = {r["id"] for r in rows}
+        missing = [q for q in which if q not in have]
+        if missing:
+            raise ValueError(f"question ids not in the manifest: {missing}")
+        keep = set(which)
+        return [r for r in rows if r["id"] in keep]
     if which == "all":
         return rows
     if which in ("discovery", "validation"):
@@ -134,6 +157,7 @@ def iter_requests(exp: dict[str, Any], stage: str, roles: list[str] | None = Non
     heldout = set(exp["role_split"]["heldout"])
     all_q = load_questions(exp)
     ranks = question_ranks(all_q)
+    granks = question_ranks(all_q, ("group",))
     questions = _select_questions(all_q, st.get("questions", "all"))
     placement = exp.get("placement", "user_prefix")
     gen = exp["generation"]
@@ -153,7 +177,9 @@ def iter_requests(exp: dict[str, Any], stage: str, roles: list[str] | None = Non
         for pv in variants:
             system_prompt = role_instruction(role, pv)
             for q in questions:
-                if wset == "discovery":
+                if wset == "discovery" and rsplit == "control":
+                    wordings = [default_wording(exp, granks[q["id"]])]
+                elif wset == "discovery":
                     wordings = [discovery_wording(exp, ranks[q["id"]], pv)]
                 elif wset == "validation":
                     wordings = list(exp["wording_templates"]["validation"])
@@ -163,13 +189,15 @@ def iter_requests(exp: dict[str, Any], stage: str, roles: list[str] | None = Non
                     seed = unit_seed(int(gen["base_seed"]), role, pv, q["id"], s)
                     for cond in _stage_conditions(exp, st, q["group"]):
                         for w in (["none"] if cond == "baseline" else wordings):
-                            text = statement(exp, cond, None if w in ("none", "eval") else w)
+                            text = statement(exp, cond, None if cond == "baseline" or w == "eval" else w)
                             system, user = build_messages(system_prompt, q["text"], text, placement)
                             msgs = ([{"role": "system", "content": system}] if system else []) + [
                                 {"role": "user", "content": user}]
                             d = condition_def(exp, cond)
                             yield Request(
                                 id=request_id(role, pv, q["id"], cond, w, s), stage=stage, role=role, category=cat,
+                                baseline_id=None if cond == "baseline" else request_id(role, pv, q["id"], "baseline",
+                                                                                       "none", s),
                                 role_split=rsplit, prompt_variant=pv, question_id=q["id"], question_group=q["group"],
                                 question_domain=q["domain"], question_family=q["family"], question_split=q["split"],
                                 condition=cond, evaluator=d["evaluator"], criterion=d["criterion"], wording_id=w,

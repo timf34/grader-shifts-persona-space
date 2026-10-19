@@ -83,7 +83,9 @@ def write_synthetic_model(model_key: str, exp: dict, stages=("main",), H: int = 
             has = bool(rng.random() > 0.02)
             dd = r.to_dict()
             rows.append({**dd, "config_id": "synthetic", "has_answer": has, "truncated": not has,
-                         "finish_reason": "stop" if has else "length", "answer_text": "x"})
+                         "finish_reason": "stop" if has else "length", "answer_text": "x",
+                         "gen_ids": [0] * 160, "max_tokens": 8192, "think_closed": has,
+                         "n_reasoning_tokens": 100, "n_answer_tokens": 50 if has else 0})
             idx.append({"id": r.id, "row": i, "config_id": "synthetic", **{k: dd.get(k) for k in META_FIELDS},
                         "n_input_tokens": 200, "n_reasoning_tokens": 100, "n_answer_tokens": 50 if has else 0,
                         "think_closed": has, "has_answer": has, "n_generated": 160, "truncated": not has,

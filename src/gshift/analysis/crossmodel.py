@@ -1,12 +1,14 @@
 """Qwen3.6-27B vs Qwen3.8-27B: is the grading-induced shift stronger, more consistent,
-lower-dimensional, differently related to the Assistant Axis, or more behaviourally
+lower-dimensional, differently related to the Assistant contrast, or more behaviourally
 consequential in the newer model?
 
 Raw coordinates are NEVER compared across models (no assumption that the residual bases
 align). Everything compared is either a within-model normalised scalar, or a
 second-order (representational-similarity) quantity over the shared role set.
 Model differences get a PAIRED bootstrap: the same resampled roles and questions are
-used for both models in each replicate.
+used for both models in each replicate. Contrasts are built exactly as in report.py
+(matched units, question groups separate, pooled = labelled average of group contrasts),
+on discovery roles x discovery questions.
 """
 
 from __future__ import annotations
@@ -21,13 +23,14 @@ import pandas as pd
 from ..config import load_questions, role_categories
 from ..io import outputs_root, write_json
 from . import stats as S
-from .cells import build_cells, centroids
+from .cells import centroids
+from .contrast import ContrastData, disp, from_cells, pooled, question_weights, two_state
 from .data import Store
 from .space import pairwise_distances
 
 SCALARS = [
     ("magnitude", "g_norm_over_act_norm"),
-    ("magnitude", "crossfit_d"),
+    ("magnitude", "crossfit_dz"),
     ("magnitude", "g_over_persona_spread"),
     ("consistency", "mean_loo_cos"),
     ("consistency", "mean_pairwise_cos"),
@@ -42,6 +45,8 @@ SCALARS = [
     ("assistant_contrast", "captured_frac_k5"),
     ("assistant_contrast", "captured_frac_k20"),
 ]
+BOOT_STATS = ("g_norm_over_act_norm", "mean_loo_cos", "mean_pairwise_cos", "sv1_energy_frac", "shared_energy_frac")
+GROUPS = ("original", "checkable", "pooled")
 
 
 def _summary(model_key: str) -> dict:
@@ -53,22 +58,22 @@ def scalar_table(summ: dict) -> pd.DataFrame:
     rows = []
     for rep, by_layer in summ["results"].items():
         for L, res_L in by_layer.items():
-            for group, res in res_L.items():
-                if not isinstance(res, dict) or "persona_space" not in res:
+            for group in GROUPS:
+                res = res_L.get(group)
+                if not isinstance(res, dict):
                     continue
-                sp = res["persona_space"]
-                for name in ("auto_minus_baseline", "human_minus_baseline", "auto_minus_human"):
-                    b = res.get(name)
-                    if not b:
+                sp = res.get("persona_space", {})
+                spread = sp.get("baseline_rms_spread")
+                for name, b in res.items():
+                    if name == "persona_space" or not isinstance(b, dict) or "observed" not in b:
                         continue
                     spc = sp.get(name, {})
                     cap = spc.get("captured_frac", {})
-                    spread = sp.get("distances_auto_vs_baseline", {}).get("rms_spread_baseline")
                     gen = b["generalisation"]
                     rows.append({
                         "rep": rep, "layer": int(L), "group": group, "contrast": name,
                         "g_norm_over_act_norm": b.get("g_norm_over_act_norm"),
-                        "crossfit_d": b["crossfit_effect"]["mean_d"],
+                        "crossfit_dz": b["crossfit_effect"]["mean_dz"],
                         "g_over_persona_spread": (b["observed"]["g_norm"] / spread) if spread else None,
                         "mean_loo_cos": b["observed"]["mean_loo_cos"],
                         "mean_pairwise_cos": b["observed"]["mean_pairwise_cos"],
@@ -79,7 +84,7 @@ def scalar_table(summ: dict) -> pd.DataFrame:
                         "sv1_energy_frac": b["observed"]["sv1_energy_frac"],
                         "participation_ratio": b["observed"]["participation_ratio"],
                         "residual_energy_frac": b["observed"]["residual_energy_frac"],
-                        "cos_assistant_contrast": spc.get("cos_assistant_axis"),
+                        "cos_assistant_contrast": spc.get("cos_assistant_contrast"),
                         "captured_frac_k5": cap.get("5"),
                         "captured_frac_k20": cap.get("20"),
                         "loo_p": b["null"].get("mean_loo_cos", {}).get("p_greater"),
@@ -88,12 +93,54 @@ def scalar_table(summ: dict) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def second_order(model_a: str, model_b: str, rep: str, L: int, group: str, name: str) -> dict[str, Any]:
+def _model_contrasts(model_key: str, exp: dict, rep: str, L: int, disc_roles: list[str]) -> dict[str, Any]:
+    """Discovery-role x discovery-question contrasts (as in report.py), condition centroids
+    per contrast state (for RSA), and the baseline activation norm, for one model."""
+    from .report import _group_cells
+
+    store = Store.load(model_key)
+    meta = store.meta
+    for col, default in (("wording_set", "none"), ("wording_id", "none")):
+        if col not in meta:
+            meta[col] = default
+    cats = role_categories(exp)
+    qmeta = {q["id"]: q for q in load_questions(exp)}
+    cds: dict[tuple[str, str], ContrastData] = {}
+    states: dict[tuple[str, str], dict[str, np.ndarray]] = {}
+    for group in ("original", "checkable"):
+        if group not in set(meta["question_group"]):
+            continue
+        conds = list(exp["condition_sets"][group])
+        cells, _ = _group_cells(store, meta, rep, L, group, disc_roles, conds, cats, qmeta)
+        cells = cells.subset_units(cells.unit_attr("split") == "discovery")
+        mu = centroids(cells)                                           # [R, C, H]
+        for name, w in exp["contrasts"][group].items():
+            cds[(group, name)] = from_cells(cells, name, w, group)
+            ts = two_state(w)
+            if ts is not None:
+                states[(group, name)] = {k: sum(v * mu[:, cells.ci(c)] for c, v in side.items())
+                                         for k, side in zip(("A", "B"), ts)}
+        del cells
+    for pname, pdef in exp.get("pooled_contrasts", {}).items():
+        keys = [(g, c) for g, c in pdef["parts"].items()]
+        if all(k in cds for k in keys):
+            cds[("pooled", pname)] = pooled(pname, pdef["label"], {g: cds[(g, c)] for g, c in keys})
+            if all(k in states for k in keys):
+                states[("pooled", pname)] = {s: np.mean([states[k][s] for k in keys], 0) for s in ("A", "B")}
+    base = meta[(meta["condition"] == "baseline") & meta["role"].isin(disc_roles)
+                & (meta["question_split"] == "discovery") & meta["wording_set"].isin(["none"])]
+    base = base[store.valid(rep, base)]
+    return {"cds": cds, "states": states, "act_norm": float(store.norms(rep, L, base).mean())}
+
+
+def second_order(model_a: str, model_b: str, rep: str, L: int, group: str, name: str,
+                 states: dict[str, dict[str, np.ndarray]] | None = None) -> dict[str, Any]:
     """Representational similarity over the shared roles (no coordinate alignment assumed)."""
     out: dict[str, Any] = {}
     va = outputs_root() / model_a / "analysis" / "vectors"
     vb = outputs_root() / model_b / "analysis" / "vectors"
-    fa, fb = va / f"{group}_{rep}_L{L}_{name}_role_displacements.npz", vb / f"{group}_{rep}_L{L}_{name}_role_displacements.npz"
+    stem = f"{group}_{rep}_L{L}_{name}_role_displacements.npz"
+    fa, fb = va / stem, vb / stem
     if fa.exists() and fb.exists():
         za, zb = np.load(fa), np.load(fb)
         if list(za["roles"]) == list(zb["roles"]):
@@ -102,65 +149,57 @@ def second_order(model_a: str, model_b: str, rep: str, L: int, group: str, name:
             out["corr_displacement_cosine_matrices"] = float(np.corrcoef(Ca[iu], Cb[iu])[0, 1])
             na, nb = np.linalg.norm(za["D"], axis=1), np.linalg.norm(zb["D"], axis=1)
             out["corr_role_shift_norms"] = float(np.corrcoef(na, nb)[0, 1])
-    ca, cb = va / f"{group}_{rep}_L{L}_role_centroids.npy", vb / f"{group}_{rep}_L{L}_role_centroids.npy"
-    if ca.exists() and cb.exists():
-        mua, mub = np.load(ca).astype(np.float64), np.load(cb).astype(np.float64)   # [R, C, H]
-        iu = np.triu_indices(mua.shape[0], 1)
-        for ci, c in enumerate(("baseline", "auto", "human")):
-            if ci < mua.shape[1]:
-                Da, Db = pairwise_distances(mua[:, ci]), pairwise_distances(mub[:, ci])
-                out[f"rsa_persona_distances_{c}"] = float(np.corrcoef(Da[iu], Db[iu])[0, 1])
+    if states is not None and model_a in states and model_b in states:
+        sa, sb = states[model_a], states[model_b]
+        iu = np.triu_indices(sa["B"].shape[0], 1)
+        for s, label in (("B", "baseline"), ("A", "condition")):
+            Da, Db = pairwise_distances(sa[s])[iu], pairwise_distances(sb[s])[iu]
+            out[f"rsa_persona_distances_{label}"] = float(np.corrcoef(Da, Db)[0, 1])
+        # do the two models change the same persona distances?
+        cha = pairwise_distances(sa["A"])[iu] - pairwise_distances(sa["B"])[iu]
+        chb = pairwise_distances(sb["A"])[iu] - pairwise_distances(sb["B"])[iu]
+        out["corr_persona_distance_changes"] = float(np.corrcoef(cha, chb)[0, 1])
+        out["state_labels"] = {"baseline": "contrast state B (reference)", "condition": "contrast state A"}
     return out
 
 
-def paired_bootstrap(model_a: str, model_b: str, exp: dict, rep: str, L: int, n_boot: int = 1000,
-                     seed: int = 0) -> dict[str, Any]:
-    """Model B minus model A (discovery roles x discovery questions, pooled), resampling the
-    SAME roles and questions in both models in each replicate."""
-    cats = role_categories(exp)
-    heldout = set(exp["role_split"]["heldout"])
-    disc_roles = [r for r in cats if r not in heldout]
-    qmeta = {q["id"]: q for q in load_questions(exp)}
-    conds = list(exp["stages"]["main"]["conditions"])
-    cells, norms = {}, {}
-    for m in (model_a, model_b):
-        st = Store.load(m)
-        meta = st.meta[st.meta["condition"].isin(conds) & st.meta["role"].isin(disc_roles)
-                       & (st.meta["question_split"] == "discovery")].reset_index(drop=True)
-        v = st.valid(rep, meta)
-        cells[m] = build_cells(meta, st.rows(rep, L, meta), v, disc_roles, conds, cats, qmeta)
-        base = v & (meta["condition"] == "baseline").to_numpy()
-        norms[m] = float(st.norms(rep, L, meta[base]).mean())
-    if cells[model_a].units != cells[model_b].units:
-        raise RuntimeError("models have different unit layouts; paired bootstrap impossible")
+def paired_bootstrap(data: dict[str, dict], model_a: str, model_b: str, n_boot: int = 1000,
+                     seed: int = 0) -> dict[tuple[str, str], dict[str, Any]]:
+    """Model B minus model A per contrast, resampling the SAME roles and questions in both
+    models in each replicate (discovery roles x discovery questions)."""
     rng = np.random.default_rng(seed)
-    uq = cells[model_a].unit_question()
-    R = len(disc_roles)
-    out: dict[str, Any] = {}
-    for name, (a, b) in exp["contrasts"].items():
-        mcs = {m: cells[m].matched(a, b) for m in cells}
-        diffs: dict[str, list[float]] = {"g_norm_over_act_norm": [], "mean_loo_cos": [], "sv1_energy_frac": [],
-                                         "mean_pairwise_cos": []}
+    out: dict[tuple[str, str], dict[str, Any]] = {}
+    ca, cb = data[model_a]["cds"], data[model_b]["cds"]
+    for key in [k for k in ca if k in cb]:
+        a, b = ca[key], cb[key]
+        if a.units != b.units or a.roles != b.roles:
+            raise RuntimeError(f"{key}: models have different unit/role layouts; paired bootstrap impossible")
+        R = len(a.roles)
+        diffs: dict[str, list[float]] = {k: [] for k in BOOT_STATS}
         for _ in range(n_boot):
-            w = S.question_weights(rng, uq)
+            w = question_weights(rng, a)
             ridx = rng.integers(0, R, size=R)
             vals = {}
-            for m, mc in mcs.items():
-                mu = centroids(mc, w)
-                D = np.nan_to_num(mu[ridx, 0] - mu[ridx, 1])
+            for m, cd in ((model_a, a), (model_b, b)):
+                D = disp(cd, w)[ridx]
                 o = S.gram_stats(D @ D.T, origin=ridx)
-                o["g_norm_over_act_norm"] = o["g_norm"] / norms[m]
+                o["g_norm_over_act_norm"] = o["g_norm"] / data[m]["act_norm"]
                 vals[m] = o
             for k in diffs:
                 diffs[k].append(vals[model_b][k] - vals[model_a][k])
-        out[name] = {k: {"mean_diff": float(np.mean(v)), "lo": float(np.quantile(v, 0.025)),
-                         "hi": float(np.quantile(v, 0.975)), "frac_positive": float(np.mean(np.array(v) > 0))}
-                     for k, v in diffs.items()}
+        res = {}
+        for k, v in diffs.items():
+            v = np.array(v, float)
+            v = v[np.isfinite(v)]
+            if len(v):
+                res[k] = {"mean_diff": float(v.mean()), "lo": float(np.quantile(v, 0.025)),
+                          "hi": float(np.quantile(v, 0.975)), "frac_positive": float((v > 0).mean())}
+        out[key] = res
     return out
 
 
 def compare_models(model_a: str, model_b: str, exp: dict, out_dir: Path | None = None,
-                   n_boot: int = 1000) -> dict:
+                   n_boot: int = 1000, reps: tuple[str, ...] | None = None) -> dict:
     out_dir = out_dir or outputs_root() / "comparison"
     out_dir.mkdir(parents=True, exist_ok=True)
     ta = scalar_table(_summary(model_a)).assign(model=model_a)
@@ -168,24 +207,37 @@ def compare_models(model_a: str, model_b: str, exp: dict, out_dir: Path | None =
     both = pd.concat([ta, tb], ignore_index=True)
     both.to_csv(out_dir / "scalars_by_model.csv", index=False)
     L = int(exp["extraction"]["primary_layer"])
-    res: dict[str, Any] = {"models": [model_a, model_b], "primary_layer": L, "primary": {}}
-    for rep in sorted(set(both["rep"])):
+    cats = role_categories(exp)
+    held = set(exp["role_split"]["heldout"])
+    disc_roles = [r for r in cats if r not in held]
+    res: dict[str, Any] = {"models": [model_a, model_b], "primary_layer": L, "primary": {},
+                           "note": "discovery roles x discovery questions; paired bootstrap = same roles and "
+                                   "questions resampled in both models; raw coordinates never compared"}
+    for rep in reps or sorted(set(both["rep"])):
         res["primary"][rep] = {}
-        for name in exp["contrasts"]:
-            rows = both[(both.rep == rep) & (both.layer == L) & (both.contrast == name) & (both.group == "pooled")]
-            if len(rows) != 2:
-                continue
-            ra = rows[rows.model == model_a].iloc[0].to_dict()
-            rb = rows[rows.model == model_b].iloc[0].to_dict()
-            res["primary"][rep][name] = {
-                "by_group": {grp: {k: {model_a: ra.get(k), model_b: rb.get(k)} for g2, k in SCALARS if g2 == grp}
-                             for grp in dict.fromkeys(g for g, _ in SCALARS)},
-                "second_order": second_order(model_a, model_b, rep, L, "pooled", name),
-            }
         try:
-            res["primary"][rep]["paired_bootstrap_b_minus_a"] = paired_bootstrap(model_a, model_b, exp, rep, L, n_boot)
+            data = {m: _model_contrasts(m, exp, rep, L, disc_roles) for m in (model_a, model_b)}
+            boot = paired_bootstrap(data, model_a, model_b, n_boot, seed=int(exp["analysis"]["seed"]))
         except Exception as e:  # missing data for one model
-            res["primary"][rep]["paired_bootstrap_b_minus_a"] = {"skipped": repr(e)}
+            data, boot = None, {}
+            res["primary"][rep]["skipped_paired_bootstrap"] = repr(e)
+        for group in GROUPS:
+            names = sorted(set(both[(both.rep == rep) & (both.group == group)]["contrast"]))
+            for name in names:
+                rows = both[(both.rep == rep) & (both.layer == L) & (both.contrast == name) & (both.group == group)]
+                if len(rows) != 2:
+                    continue
+                ra = rows[rows.model == model_a].iloc[0].to_dict()
+                rb = rows[rows.model == model_b].iloc[0].to_dict()
+                states = None
+                if data is not None and all((group, name) in data[m]["states"] for m in data):
+                    states = {m: data[m]["states"][(group, name)] for m in data}
+                res["primary"][rep][f"{group}|{name}"] = {
+                    "by_group": {grp: {k: {model_a: ra.get(k), model_b: rb.get(k)} for g2, k in SCALARS if g2 == grp}
+                                 for grp in dict.fromkeys(g for g, _ in SCALARS)},
+                    "second_order": second_order(model_a, model_b, rep, L, group, name, states),
+                    "paired_bootstrap_b_minus_a": boot.get((group, name), {"skipped": "no paired data"}),
+                }
     beh = {}
     for m in (model_a, model_b):
         p = outputs_root() / m / "steering" / "behaviour_summary.json"
@@ -194,5 +246,7 @@ def compare_models(model_a: str, model_b: str, exp: dict, out_dir: Path | None =
     res["behaviour"] = beh
     res["caveat"] = ("A stronger effect in the newer model establishes a difference between releases; "
                      "attributing it to additional RLVR needs training information or controlled checkpoints.")
-    write_json(out_dir / "comparison.json", res)
+    from .report import _clean
+
+    write_json(out_dir / "comparison.json", _clean(res))
     return res

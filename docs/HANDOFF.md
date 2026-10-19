@@ -1,5 +1,15 @@
 # Handoff: finish design v3 + validation tooling
 
+> **Status 2026-10-19 (second session):** items 1-4 and 6 below are done and merged
+> (suite green, transformers pinned to 5.14.1, pod runners rebuilt on
+> scripts/pod/_lib.sh incl. run_pilot.sh, pilot_report.py, design_report.py,
+> gpu_checks.py + docs/gpu_validation.md, README). Design decisions taken with the user:
+> examiner/reviewer/hacker/saboteur added by a seeded swap, the brief's pilot size with
+> equal token budgets, the brief's w1 wording, wording-validation reuses main-grid
+> baselines via `baseline_id` (counted once), HF datasets public by default. Item 5 (Q2
+> additions) is the remaining work. The README is the current reference; the text below
+> is the original handoff.
+
 Branch: `claude/loving-clarke-4uxbqs` (WIP, **untested**). `main` = `b1aa2e8`, the last
 end-to-end-working version (design v2). Merge the branch into `main` only once the test
 suite passes. Do **not** launch the full grid.

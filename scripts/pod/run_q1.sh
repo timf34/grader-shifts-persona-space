@@ -2,67 +2,64 @@
 # Q1 end to end for ONE model on one pod (all GPUs used data-parallel). Idempotent and
 # resumable: every step skips finished work, so re-running after a crash continues.
 #
-#   rp run <pod> --job q1 -- bash scripts/pod/run_q1.sh qwen3.6-27b
-#   SMOKE_ONLY=1 bash scripts/pod/run_q1.sh qwen3.6-27b     # technical smoke test, then exit
-#   STAGES="main" SKIP_SMOKE=1 bash scripts/pod/run_q1.sh qwen3.8-27b
-#   SHUTDOWN=stop bash scripts/pod/run_q1.sh qwen3.6-27b    # runpodctl stop pod at the end
+# Launch (laptop, from the repo root; see README "Running on RunPod"):
+#   rp up --name gs-q36 --gpu h200 --gpus 2 --volume none --volume-size 200 --disk 80
+#   rp bootstrap gs-q36 --repo https://github.com/timf34/grader-shifts-persona-space --env .env --req requirements/pod.txt
+#   rp run gs-q36 --job q1 --env SHUTDOWN=stop -- bash scripts/pod/run_q1.sh qwen3.6-27b
+#   rp logs gs-q36 --job q1 -n 40          # or watch logs/q1/<model>/STATE.md on the HF dataset
 #
-# Steps: weights download (background, hf_transfer) || EasySteer venv install -> smoke test
-# (tiny grid, budget report) -> generation (vLLM, one worker per GPU) -> Betley
+# Knobs (env): SMOKE_ONLY=1 (smoke test, then exit) | SKIP_SMOKE=1 | DOCTOR_ONLY=1 |
+#   STAGES="main wording_validation followup" | GEN_TP=2 (tensor parallel per generation
+#   worker, e.g. on 80 GB GPUs) | SHUTDOWN=stop|terminate | MAX_HOURS=48 | NGPU=<n>
+#
+# Steps: preflight -> weights download (background) || EasySteer venv -> smoke test (tiny
+# grid, outputs_smoke/) -> generation (vLLM, one worker per GPU group) -> Betley
 # reproduction + layer verification (HF) -> extraction (HF, one worker per GPU) || judge
-# (API, background) -> analysis -> upload to $HF_DATASET_REPO after each step.
-set -uo pipefail
-cd "$(dirname "$0")/../.."
+# (API, background) -> analysis; upload to $HF_DATASET_REPO after each step.
 MODEL="${1:?usage: run_q1.sh <model-key>}"
-set -a; [ -f .env ] && source .env; set +a
-export HF_HOME="${HF_HOME:-/workspace/hf}" HF_HUB_ENABLE_HF_TRANSFER=1 PYTHONUNBUFFERED=1
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-STAGES="${STAGES:-main paraphrase followup}"
-NGPU="${NGPU:-$(nvidia-smi -L | wc -l | tr -d ' ')}"
-PY="${PY:-python}"
-LOGDIR="${LOGDIR:-/workspace/logs/$MODEL}"; mkdir -p "$LOGDIR"
-T0=$(date +%s)
-step() { echo; echo "=== [$(( ($(date +%s)-T0)/60 )) min] $*  $(date -u +%FT%TZ)"; }
-upload() { [ -n "${HF_DATASET_REPO:-}" ] && $PY -u scripts/upload_hf.py --model "$MODEL" --message "$1" || echo "(no HF_DATASET_REPO: skipping upload)"; }
-finish() {
-  step "done (exit $1)"
-  if [ -n "${SHUTDOWN:-}" ] && [ -n "${RUNPOD_POD_ID:-}" ] && command -v runpodctl >/dev/null; then
-    [ "$SHUTDOWN" = terminate ] && runpodctl remove pod "$RUNPOD_POD_ID" || runpodctl stop pod "$RUNPOD_POD_ID"
-  fi
-  exit "$1"
-}
+MAX_HOURS="${MAX_HOURS:-48}"
+# shellcheck source=scripts/pod/_lib.sh
+source "$(dirname "$0")/_lib.sh"
+pod_init "${RP_JOB:-q1}" "$MODEL"
+STAGES="${STAGES:-main wording_validation followup}"
+JUDGE_FLAG=""; [ -n "${OPENAI_API_KEY:-}" ] && JUDGE_FLAG="--judge"
+TP_FLAG=""; [ "$GEN_TP" -gt 1 ] && TP_FLAG="--tensor-parallel-size $GEN_TP"
 
-step "weights download (background) + EasySteer venv install, $NGPU GPU(s)"
-$PY -u scripts/download_model.py --model "$MODEL" > "$LOGDIR/download.log" 2>&1 &
-DL=$!
-bash scripts/pod/install_easysteer.sh > "$LOGDIR/install_es.log" 2>&1 || { tail -30 "$LOGDIR/install_es.log"; finish 3; }
-ES_PY="$(cat /workspace/.es_venv_path)/bin/python"
-$PY -m pip install -q --no-deps "fla-core==0.5.2" "flash-linear-attention==0.5.2" einops 2>/dev/null \
-  && echo "flash-linear-attention installed" || echo "(flash-linear-attention unavailable: HF uses the torch fallback)"
-wait $DL || { echo "!! weight download failed"; tail -20 "$LOGDIR/download.log"; finish 4; }
+step "preflight"
+doctor "$(need_gb)" $JUDGE_FLAG || finish 2
+[ "${DOCTOR_ONLY:-0}" = 1 ] && finish 0
+
+step "weights download (background) + EasySteer venv"
+start_download
+es_install
+wait_download
 
 if [ "${SKIP_SMOKE:-0}" != 1 ]; then
   step "smoke test (tiny grid, outputs_smoke/)"
-  $ES_PY -u scripts/01_generate.py --model "$MODEL" --smoke --stages main paraphrase followup || finish 5
-  $PY -u scripts/02_extract.py --model "$MODEL" --smoke --require-verification || finish 6
+  # shellcheck disable=SC2086
+  es_py -u scripts/01_generate.py --model "$MODEL" --smoke --stages main wording_validation followup $TP_FLAG \
+    > "$LOGDIR/smoke_generate.log" 2>&1 || { tail -n 30 "$LOGDIR/smoke_generate.log"; finish 5; }
+  $PY -u scripts/02_extract.py --model "$MODEL" --smoke --require-verification > "$LOGDIR/smoke_extract.log" 2>&1 \
+    || { tail -n 30 "$LOGDIR/smoke_extract.log"; finish 6; }
   $PY -u scripts/smoke_report.py --model "$MODEL" | tee "$LOGDIR/smoke_report.txt"
-  [ -n "${OPENAI_API_KEY:-}" ] && $PY -u scripts/03_judge.py --model "$MODEL" --smoke
-  $PY -u scripts/04_analyze.py --model "$MODEL" --smoke --reps pre resp --layers 36 --no-plots || finish 7
+  $PY -u scripts/gpu_checks.py spans --model "$MODEL" --smoke | tee "$LOGDIR/smoke_spans.txt"
+  [ "${PIPESTATUS[0]}" = 0 ] || finish 6
+  CUDA_VISIBLE_DEVICES=0 $PY -u scripts/gpu_checks.py replay --model "$MODEL" --smoke | tee "$LOGDIR/smoke_replay.txt"
+  [ "${PIPESTATUS[0]}" = 0 ] || finish 6
+  [ -n "$JUDGE_FLAG" ] && $PY -u scripts/03_judge.py --model "$MODEL" --smoke > "$LOGDIR/smoke_judge.log" 2>&1
+  $PY -u scripts/04_analyze.py --model "$MODEL" --smoke --reps pre resp --layers 36 --no-plots \
+    > "$LOGDIR/smoke_analysis.log" 2>&1 || { tail -n 30 "$LOGDIR/smoke_analysis.log"; finish 7; }
+  state "smoke test passed"
+  upload_logs || true
   [ "${SMOKE_ONLY:-0}" = 1 ] && finish 0
 fi
 
-step "generation: stages [$STAGES], $NGPU worker(s)"
-pids=()
-for ((i=0; i<NGPU; i++)); do
-  CUDA_VISIBLE_DEVICES=$i $ES_PY -u scripts/01_generate.py --model "$MODEL" --stages $STAGES \
-    --worker $i --num-workers "$NGPU" > "$LOGDIR/generate_$i.log" 2>&1 &
-  pids+=($!)
-done
-fail=0; for p in "${pids[@]}"; do wait "$p" || fail=1; done
-[ $fail = 0 ] || { echo "!! a generation worker failed"; tail -n 20 "$LOGDIR"/generate_*.log; finish 8; }
+step "generation: stages [$STAGES], $NGPU GPU(s), TP $GEN_TP"
+# shellcheck disable=SC2086
+fanout generate "$GEN_TP" es_py scripts/01_generate.py --model "$MODEL" --stages $STAGES $TP_FLAG || finish 8
 upload "responses ($STAGES)"
 
-if [ -n "${OPENAI_API_KEY:-}" ]; then
+if [ -n "$JUDGE_FLAG" ]; then
   step "judge (background, API)"
   $PY -u scripts/03_judge.py --model "$MODEL" > "$LOGDIR/judge.log" 2>&1 &
   JUDGE=$!
@@ -70,21 +67,19 @@ fi
 
 step "Betley reproduction + layer/template verification"
 VERIFY=""; [[ "$MODEL" == qwen3.6* ]] && VERIFY="--require-verification"
-CUDA_VISIBLE_DEVICES=0 $PY -u scripts/02_extract.py --model "$MODEL" --betley-only $VERIFY || finish 9
+CUDA_VISIBLE_DEVICES=0 $PY -u scripts/02_extract.py --model "$MODEL" --betley-only $VERIFY \
+  > "$LOGDIR/betley.log" 2>&1 || { tail -n 30 "$LOGDIR/betley.log"; finish 9; }
+grep "^\[betley\]" "$LOGDIR/betley.log" | tail -n 1
 
 step "activation extraction, $NGPU worker(s)"
-pids=()
-for ((i=0; i<NGPU; i++)); do
-  CUDA_VISIBLE_DEVICES=$i $PY -u scripts/02_extract.py --model "$MODEL" --skip-betley \
-    --worker $i --num-workers "$NGPU" > "$LOGDIR/extract_$i.log" 2>&1 &
-  pids+=($!)
-done
-fail=0; for p in "${pids[@]}"; do wait "$p" || fail=1; done
-[ $fail = 0 ] || { echo "!! an extraction worker failed"; tail -n 20 "$LOGDIR"/extract_*.log; finish 10; }
-[ -n "${JUDGE:-}" ] && { wait "$JUDGE" || echo "!! judge failed (see $LOGDIR/judge.log); re-run scripts/03_judge.py"; }
+fanout extract 1 "$PY" scripts/02_extract.py --model "$MODEL" --skip-betley || finish 10
+if [ -n "${JUDGE:-}" ]; then
+  wait "$JUDGE" || state "!! judge failed (see judge.log); re-run scripts/03_judge.py, then the analysis"
+fi
 upload "activations + judge scores"
 
 step "Q1 analysis"
-$PY -u scripts/04_analyze.py --model "$MODEL" > "$LOGDIR/analysis.log" 2>&1 || { tail -30 "$LOGDIR/analysis.log"; finish 11; }
+$PY -u scripts/04_analyze.py --model "$MODEL" > "$LOGDIR/analysis.log" 2>&1 || { tail -n 30 "$LOGDIR/analysis.log"; finish 11; }
+grep "^\[analysis\]" "$LOGDIR/analysis.log" | grep " L36:" | head -n 6
 upload "Q1 analysis"
 finish 0

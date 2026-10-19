@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -44,6 +45,7 @@ def config_identity(spec: ModelSpec, exp: dict[str, Any]) -> tuple[str, dict[str
         # texts, their assignment rule or condition sets changes the config id
         "conditions": exp.get("conditions"), "condition_sets": exp.get("condition_sets"),
         "wording_templates": exp.get("wording_templates"), "wording_assignment": exp.get("wording_assignment"),
+        "default_wording_assignment": exp.get("default_wording_assignment"),
         "followup_statement": exp.get("followup_statement"),
     }
     cid = hashlib.sha256(json.dumps(ident, sort_keys=True).encode()).hexdigest()[:16]
@@ -84,9 +86,11 @@ def sampling_params(gen_cfg: dict[str, Any], seed: int, max_tokens: int):
 
 
 def existing_records(model_key: str, requests: list[Request]) -> dict[str, str]:
-    """id -> config_id of records already on disk for the (condition, role) files touched."""
+    """id -> config_id of records already on disk in the (condition, role) files touched,
+    including the baseline files of the main-grid baselines the requests reference."""
     out: dict[str, str] = {}
-    for cond, role in sorted({(r.condition, r.role) for r in requests}):
+    files = {(r.condition, r.role) for r in requests} | {("baseline", r.role) for r in requests if r.baseline_id}
+    for cond, role in sorted(files):
         for rec in read_jsonl(responses_path(model_key, cond, role)):
             out[rec["id"]] = rec.get("config_id", "?")
     return out
@@ -98,12 +102,20 @@ def run_generation(spec: ModelSpec, requests: list[Request], exp: dict[str, Any]
     gen_cfg = exp["generation"]
     cid, ident = config_identity(spec, exp)
     have = existing_records(spec.key, requests)
-    clash = [i for i, c in have.items() if c != cid and i in {r.id for r in requests}]
+    # one config per output root: any record in a touched file (or a referenced baseline)
+    # under another config id aborts, so a stage that reuses main-grid baselines can only
+    # be paired with baselines from the same revision, template, settings and token budget
+    clash = [i for i, c in have.items() if c != cid]
     if clash:
         raise RuntimeError(
             f"{len(clash)} existing records (e.g. {clash[0]}) were generated under config id "
             f"{have[clash[0]]}, current is {cid}. Refusing to mix configurations: move the old outputs "
             "away or point GSHIFT_OUTPUTS elsewhere.")
+    reused = sorted({r.baseline_id for r in requests if r.baseline_id} - {r.id for r in requests})
+    if reused:
+        n_have = sum(b in have for b in reused)
+        print(f"[generate] {len(reused)} requests reuse main-grid baselines ({n_have} on disk under this config, "
+              f"{len(reused) - n_have} not yet generated)", flush=True)
     todo = [r for r in requests if r.id not in have]
     print(f"[generate] {spec.key} config={cid}: {len(requests)} requests, {len(requests) - len(todo)} done, "
           f"{len(todo)} to go", flush=True)
@@ -123,7 +135,7 @@ def run_generation(spec: ModelSpec, requests: list[Request], exp: dict[str, Any]
     if not todo:
         return 0
     if info.think_close_id is None:
-        raise RuntimeError("thinking enabled but tokenizer has no single </think> token")
+        raise RuntimeError("tokenizer has no single </think> token: cannot split reasoning from answer")
 
     from vllm.inputs import TokensPrompt
 
@@ -171,6 +183,10 @@ def run_generation(spec: ModelSpec, requests: list[Request], exp: dict[str, Any]
         n_done += len(chunk)
         rows_all = [x for v in by_file.values() for x in v]
         dt = time.time() - t0
+        append_jsonl(model_dir(spec.key) / "run_config" / f"timings_{cid}.jsonl", [{
+            "time_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "n_requests": len(chunk),
+            "seconds": round(dt, 2), "gen_tokens": n_tok, "prompt_tokens": sum(len(i) for i in pids),
+            "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"), "pod_id": os.environ.get("RUNPOD_POD_ID")}])
         print(f"[generate] {n_done}/{len(todo)}  {dt:.0f}s  {n_tok / max(dt, 1e-9):.0f} tok/s  "
               f"truncated={sum(x['truncated'] for x in rows_all)}  "
               f"has_answer={sum(x['has_answer'] for x in rows_all)}/{len(rows_all)}", flush=True)

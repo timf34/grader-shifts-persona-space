@@ -40,6 +40,51 @@ def tiny_model(vocab: int = 248320):
     return Qwen3_5ForConditionalGeneration(cfg).eval()
 
 
+def _pinned_transformers() -> str:
+    from gshift import REPO_ROOT
+
+    pins = [l.split("==")[1].strip() for l in (REPO_ROOT / "requirements" / "pod.txt").read_text().splitlines()
+            if l.startswith("transformers==")]
+    assert len(pins) == 1, "requirements/pod.txt must pin transformers to an exact version"
+    es = (REPO_ROOT / "scripts" / "pod" / "install_easysteer.sh").read_text()
+    assert f'TRANSFORMERS_PIN="${{TRANSFORMERS_PIN:-{pins[0]}}}"' in es, "EasySteer venv must use the same pin"
+    return pins[0]
+
+
+@pytest.mark.parametrize("key", ["qwen3.6-27b", "qwen3.8-27b"])
+def test_pinned_stack(key):
+    """The pinned transformers loads both pinned revisions as qwen3_5 with the expected
+    shapes and special-token ids, and renders thinking ON and OFF prompts as expected."""
+    pin = _pinned_transformers()
+    if transformers.__version__ != pin:
+        pytest.skip(f"installed transformers {transformers.__version__} != pinned {pin}")
+    from gshift.templates import inspect_template, render_prompt, split_generation
+
+    spec = REVS[key]
+    try:
+        cfg = transformers.AutoConfig.from_pretrained(spec.hf_id, revision=spec.revision, local_files_only=True)
+    except Exception:
+        pytest.skip(f"{spec.hf_id} config not cached (run scripts/fetch_tokenizers.py)")
+    assert cfg.model_type == "qwen3_5" and cfg.architectures == ["Qwen3_5ForConditionalGeneration"]
+    tc = cfg.text_config
+    assert tc.num_hidden_layers == spec.n_layers == 64 and tc.hidden_size == spec.hidden_size == 5120
+    assert len(tc.layer_types) == 64 and tc.layer_types.count("full_attention") == 16
+    tok = tokenizer(key)
+    ids = {t: tok.convert_tokens_to_ids(t) for t in ("<think>", "</think>", "<|im_end|>")}
+    assert ids == {"<think>": 248068, "</think>": 248069, "<|im_end|>": 248046}
+    kw = spec.chat_template_kwargs
+    msgs = [{"role": "system", "content": "S"}, {"role": "user", "content": "Hi"}]
+    on = render_prompt(tok, msgs, True, kw)
+    off = render_prompt(tok, msgs, False, kw)
+    assert on == "<|im_start|>system\nS<|im_end|>\n<|im_start|>user\nHi<|im_end|>\n<|im_start|>assistant\n<think>\n"
+    assert off.startswith(on[: -len("<think>\n")]) and off.endswith("</think>\n\n") and "<think>" in off
+    info = inspect_template(tok, False, kw)
+    assert not info.prompt_opens_think and not info.notes
+    gen = tok("Plain answer.", add_special_tokens=False)["input_ids"] + [ids["<|im_end|>"]]
+    sp = split_generation(gen, tok, info)          # thinking off: everything visible is the answer
+    assert sp.has_answer and not sp.reasoning and tok.decode([gen[i] for i in sp.answer]) == "Plain answer."
+
+
 def test_hook_convention_matches_hidden_states():
     from gshift.hooks import add_to_residual, capture_residual, find_text_model
 
@@ -146,3 +191,113 @@ def test_betley_comparison_detects_offsets():
     # "assistant-axis convention" (block OUTPUT) == our layer + 1: must be detected
     shifted = compare_with_published(np.roll(d, -1, axis=0), np.roll(n, -1))
     assert not shifted["verification_passed"] and shifted["best_offset_by_norm_profile"] == 1
+
+
+# ---------------------------------------------------------------------------
+# GPU validation tooling (gshift.validation), on the tiny model
+# ---------------------------------------------------------------------------
+
+def _greedy(model, prompt, n, layer=None, vec=None):
+    from gshift.hooks import add_to_residual
+
+    ids = list(prompt)
+    for _ in range(n):
+        x = torch.tensor([ids])
+        with torch.no_grad():
+            if layer is None:
+                logits = model(input_ids=x).logits[0, -1]
+            else:
+                with add_to_residual(model, layer, vec):
+                    logits = model(input_ids=x).logits[0, -1]
+        ids.append(int(logits.argmax()))
+    return ids[len(prompt):]
+
+
+def test_span_check_flags_bad_records():
+    from gshift.templates import inspect_template, split_generation
+    from gshift.validation import check_spans
+
+    tok = tokenizer("qwen3.6-27b")
+    info = inspect_template(tok, True)
+    end = 248046
+
+    def row(i, body, finish="stop", tail=(end,), info=info):
+        g = tok(body, add_special_tokens=False)["input_ids"] + list(tail)
+        sp = split_generation(g, tok, info)
+        return {"id": f"r{i}", "gen_ids": g, "finish_reason": finish, "truncated": finish == "length",
+                "max_tokens": len(g), "has_answer": sp.has_answer,
+                "answer_span": [sp.answer[0], sp.answer[-1] + 1] if sp.answer else None}
+
+    good = [row(0, "Think.\n</think>\n\nAnswer."), row(1, "still thinking", "length", ())]
+    assert check_spans(good, tok, info)["ok"]
+    bad = row(2, "Think.\n</think>\n\nAnswer.")
+    bad["answer_span"] = [0, 3]                                   # stored span disagrees with a re-split
+    nostop = row(3, "Think.\n</think>\n\nAnswer.", tail=())       # "stop" without <|im_end|>
+    res = check_spans(good + [bad, nostop], tok, info)
+    assert not res["ok"]
+    assert res["hard_failures"] == {"stored_span_differs_from_resplit": 1, "stop_without_end_token": 1}
+    off = inspect_template(tok, False)
+    assert check_spans([row(4, "Plain answer.", info=off)], tok, off)["hard_failures"] == {}
+    assert check_spans([row(5, "Think.\n</think>\n\nAnswer.", info=off)], tok, off)["warnings"] == \
+        {"thinking_off_but_think_tags_generated": 1}
+
+
+def test_replay_check_detects_misalignment():
+    from gshift.validation import replay_check
+
+    m = tiny_model(vocab=512)
+    rng = torch.Generator().manual_seed(0)
+    rows = []
+    for i in range(3):
+        prompt = torch.randint(0, 512, (12,), generator=rng).tolist()
+        ids = list(prompt)
+        for _ in range(40):                                       # top-k 20 sampling, like vLLM
+            with torch.no_grad():
+                logits = m(input_ids=torch.tensor([ids])).logits[0, -1]
+            top = torch.topk(logits, 20)
+            ids.append(int(top.indices[torch.multinomial(torch.softmax(top.values, -1), 1, generator=rng)]))
+        rows.append({"id": f"r{i}", "prompt_ids": prompt, "gen_ids": ids[12:]})
+    ok = replay_check(m, rows, top_k=20)
+    assert ok["ok"] and ok["frac_in_top_k"] == 1.0 and ok["control_off_by_one_frac_in_top_k"] < 0.5
+    shifted = [{**r, "prompt_ids": r["prompt_ids"][:-1]} for r in rows]   # replay misaligned by one token
+    assert not replay_check(m, shifted, top_k=20)["ok"]
+
+
+def test_steering_comparison_finds_layer_scale_and_sign(tmp_path):
+    from gshift.steer.engine import write_direction_gguf
+    from gshift.validation import compare_steering, gguf_roundtrip, steered_token_logprobs
+
+    m = tiny_model(vocab=512)
+    torch.manual_seed(1)
+    unit = torch.randn(32)
+    unit = (unit / unit.norm()).numpy()
+    prompts = [torch.randint(0, 512, (10,)).tolist() for _ in range(3)]
+    with torch.no_grad():
+        a_l = float(find_text_model_norm(m, prompts[0], 4))
+
+    def server(layer, scale):    # what a correctly (or wrongly) wired server would return
+        out = []
+        for p in prompts:
+            for s in (0.0, scale, -scale):
+                v = torch.tensor(unit * s, dtype=torch.float32)
+                g = _greedy(m, p, 12, None if s == 0 else layer, v)
+                lp = steered_token_logprobs(m, p, g, None if s == 0 else layer, v)
+                out.append({"prompt_ids": p, "gen_ids": g, "token_logprobs": lp.tolist(), "signed_scale": s})
+        return out
+
+    s = 3.0 * a_l
+    good = compare_steering(m, server(4, s), unit, 4, 8)
+    assert good["ok"] and good["best_counts"] == {"L": 6}
+    off_by_one = compare_steering(m, server(3, s), unit, 4, 8)    # server steering block 4's input = our L-1
+    assert not off_by_one["ok"] and off_by_one["best_counts"].get("L-1", 0) >= 4
+    path = write_direction_gguf(unit, 36, tmp_path / "d.gguf")
+    assert gguf_roundtrip(path, unit, 36)["ok"]
+    assert not gguf_roundtrip(path, unit, 37)["ok"]
+
+
+def find_text_model_norm(m, prompt, layer):
+    from gshift.hooks import capture_residual
+
+    with capture_residual(m, [layer]) as st:
+        m(input_ids=torch.tensor([prompt]))
+    return st[layer][0].norm(dim=-1).mean()

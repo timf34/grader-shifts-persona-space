@@ -1,6 +1,7 @@
 # run outputs live on the HF dataset, not in git
 outputs/
 outputs_smoke/
+outputs_pilot/
 logs/
 *.log
 .env
