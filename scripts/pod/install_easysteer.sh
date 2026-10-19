@@ -10,10 +10,11 @@
 # requirements/pod.txt (chat templates are rendered in this venv).
 #
 # Wheels follow the HOST driver (nvidia-smi "CUDA Version"):
-#   >= 13 : PyPI vllm==0.26.0 (CUDA 13 build, torch 2.11.0)       -> /workspace/es_venv_cu130
+#   >= 13 : PyPI vllm==0.26.0 (CUDA 13 build, torch 2.11.0)       -> $ES_VENV_ROOT/es_venv_cu130
 #   12.x  : the official vllm-0.26.0+cu129 release wheel with torch 2.11.0+cu129 and a CPU
 #           torchcodec, plus NVIDIA's cuda-compat-12-9 libraries on drivers < 575
-#                                                                  -> /workspace/es_venv_cu129
+#                                                                  -> $ES_VENV_ROOT/es_venv_cu129
+#   ($ES_VENV_ROOT defaults to /workspace; _lib.sh sets / when /workspace is a FUSE mount)
 #           (the PyPI wheel needs libcudart.so.13 even with a cu128 torch index; recipe and
 #           failure modes from timf34/tess-antra-project
 #           reports/generation_runtime_repair_2026-10-08.md: cu129 wheel + compat, CPU
@@ -36,7 +37,8 @@ case "${DRV_CUDA%%.*}" in
   1[3-9]|[2-9][0-9]) LINE=cu130 ;;
   *) echo "!! host driver ${DRV:-?} (CUDA ${DRV_CUDA:-?}) is too old: need CUDA >= 12.x"; exit 2 ;;
 esac
-ES_VENV="${ES_VENV:-/workspace/es_venv_$LINE}"
+ES_ROOT="${ES_VENV_ROOT:-/workspace}"
+ES_VENV="${ES_VENV:-${ES_ROOT%/}/es_venv_$LINE}"
 echo "driver ${DRV:-?} (CUDA ${DRV_CUDA:-?}) -> $LINE wheels, venv $ES_VENV"
 
 # torchcodec (a vLLM dependency) needs the FFmpeg shared libraries just to import
