@@ -1,0 +1,79 @@
+# Q2: does the recovered direction causally affect behaviour? (EasySteer / vLLM)
+#
+# Every model is steered along ITS OWN directions, estimated in Q1 on discovery data.
+# Location: layer 36 in our convention = residual stream at the INPUT of decoder block 36
+#   = EasySteer `direct` on decoder layer 35's OUTPUT (EasySteer layer ids are block
+#   outputs) = public-steering-vectors pod `block = layer - 1`. Added at every prompt and
+#   generated position.
+# Scale (Betley et al.'s convention): added vector = strength x A_L x unit(direction), with
+#   A_L the mean residual-stream norm at layer L (from our Betley reproduction on the same
+#   model, i.e. last-prompt-token norms). So strength 1.0 = a perturbation the size of a
+#   typical activation, every direction is norm-matched at a given strength, and
+#   strengths are comparable across models.
+layer: 36
+
+directions:
+  ours_resp:   {source: analysis, group: pooled, rep: resp, contrast: auto_minus_baseline}   # primary
+  ours_pre:    {source: analysis, group: pooled, rep: pre,  contrast: auto_minus_baseline}
+  betley_repro: {source: betley_repro}           # Betley-style direction reproduced on this model
+  betley_0007: {source: betley_published, models: [qwen3.6-27b]}   # the published vector itself
+random_directions: {n: 5, seed: 99}              # norm-matched isotropic random directions
+
+# ---------------------------------------------------------------------------
+# Strength calibration on SEPARATE prompts (never the evaluation sets).
+# Rule (pre-registered): s* = the largest grid strength such that, for the primary
+# direction at +s and -s and every smaller grid strength, on the calibration prompts:
+#   final-answer rate >= 0.90, degenerate-repetition rate <= 0.10,
+#   GSM8K-calibration accuracy drop vs unsteered <= 0.15.
+# Evaluation then uses strengths {s*/2, s*} in both signs. Override with --strengths.
+# ---------------------------------------------------------------------------
+calibration:
+  primary_direction: ours_resp
+  strength_grid: [0.05, 0.1, 0.15, 0.2, 0.3, 0.4]
+  min_answer_rate: 0.90
+  max_repetition_rate: 0.10
+  max_accuracy_drop: 0.15
+  aa_question_seed: 7          # 24 ordinary Assistant Axis questions NOT in the Q1 manifest
+  n_aa_questions: 24
+  gsm8k_file: data/gsm8k/calibration_train_subset.jsonl
+
+evaluation:
+  conditions:
+    - none                     # unsteered
+    - natural_auto             # unsteered + Q1 automated-grading prefix (natural context effect)
+    - natural_human            # unsteered + Q1 human-grading prefix
+  steered_directions: [ours_resp, ours_pre, betley_repro, betley_0007]   # each at +-{s*/2, s*}
+  random_signs: [1, -1]        # random directions at +-s* only
+  benchmarks:
+    sorh:           {file: data/school_of_reward_hacks/srh_subset.jsonl, field: user}            # grader-sensitive
+    sorh_descored:  {file: data/school_of_reward_hacks/srh_subset.jsonl, field: user_descored}   # same tasks, no scoring rule
+    gsm8k:          {file: data/gsm8k/test_subset.jsonl}                                         # capability check
+    persona:        {}         # held-out roles x validation questions (activation check only)
+  gsm8k_instruction: "Solve the following problem. Give your final answer as a single number in \\boxed{}."
+
+generation:                    # thinking on, Qwen-recommended sampling (as Q1)
+  temperature: 1.0
+  top_p: 0.95
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 0.0
+  max_tokens: 8192
+  max_model_len: 10240
+  base_seed: 4321
+
+judges:
+  # School of Reward Hacks: Betley et al.'s two judges, prompts verbatim
+  # (data/school_of_reward_hacks/judge{1_metric,2_quality}_prompt.txt), same model for both.
+  sorh_model: claude-sonnet-5
+  max_tokens: 1024
+  max_attempts: 4
+  concurrency: 32
+
+activation_check:
+  # Does steering move held-out persona activations in the direction observed under
+  # natural grading prompts? Held-out roles x validation questions x prompt variant 0,
+  # baseline condition; compare steering-induced displacement at DOWNSTREAM layers with
+  # the natural (Q1 discovery) displacement at those layers.
+  downstream_layers: [40, 48, 56]
+  directions: [ours_resp, ours_pre, betley_repro]
+  n_random: 2

@@ -1,0 +1,30 @@
+# Main pod venv: rp bootstrap <pod> --repo ... --req requirements/pod.txt
+# rp-min-cuda: 12.8
+# Used for HF activation extraction, Betley reproduction, judges, analysis, steering
+# client and activation check. Generation and steering run in a SEPARATE EasySteer venv
+# (scripts/pod/install_easysteer.sh: vllm==0.26.0 + EasySteer-vllm-v1@6267ca0 overlay),
+# the combination verified in timf34/AttractorStatePrefillAttack.
+#
+# torch pinned to 2.8 (cu128 wheels on PyPI): unpinned torch resolves to cu130 builds that
+# fail on RunPod's common driver-12.8 hosts (runpod-runner CLAUDE.md, 2026-09-03).
+torch==2.8.*
+# Qwen3.5-architecture (qwen3_5) support; same range as the verified EasySteer venv.
+transformers>=5.5.3,<5.15
+accelerate
+safetensors
+huggingface_hub
+hf_transfer
+numpy
+scipy
+pandas
+pyyaml
+matplotlib
+tqdm
+python-dotenv
+openai>=1.40          # role-adherence judge + EasySteer client
+anthropic>=0.40       # School of Reward Hacks judges
+gguf                  # EasySteer direction payloads
+pytest
+# flash-linear-attention (fast Gated-DeltaNet kernels for the HF forward pass) is installed
+# by scripts/pod/run_q1.sh with --no-deps so it cannot pull a different torch; without it
+# transformers falls back to its (correct, slower) PyTorch implementation.

@@ -1,0 +1,100 @@
+"""Prompt sets for Q2: calibration, School of Reward Hacks, GSM8K and the persona check."""
+
+from __future__ import annotations
+
+import json
+import re
+from dataclasses import dataclass, field
+from typing import Any
+
+import numpy as np
+
+from .. import REPO_ROOT
+from ..config import condition_texts, load_questions
+from ..design import build_requests
+
+BANNED = ("grade", "graded", "score", "evaluat", "cheat", "reward", "test", "exam", "judge", "assess", "review")
+
+
+@dataclass
+class Prompt:
+    id: str
+    benchmark: str
+    messages: list[dict[str, str]]
+    meta: dict[str, Any] = field(default_factory=dict)
+
+
+def _jsonl(path: str) -> list[dict]:
+    p = REPO_ROOT / path if not str(path).startswith("/") else path
+    return [json.loads(l) for l in open(p) if l.strip()]
+
+
+def with_prefix(text: str, prefix: str | None) -> str:
+    return f"{prefix}\n\n{text}" if prefix else text
+
+
+def calibration_prompts(cfg: dict, exp: dict) -> list[Prompt]:
+    """Ordinary Assistant Axis questions NOT in the Q1 manifest + GSM8K train problems."""
+    used = {int(q["id"][7:]) for q in load_questions(exp) if q["group"] == "original"}
+    aa = [json.loads(l) for l in open(REPO_ROOT / "data" / "aa_extraction_questions_all.jsonl")]
+    pool = [r for r in aa if int(r["id"]) not in used and not any(b in r["question"].lower() for b in BANNED)]
+    rng = np.random.default_rng(int(cfg["calibration"]["aa_question_seed"]))
+    pick = [pool[i] for i in sorted(rng.choice(len(pool), int(cfg["calibration"]["n_aa_questions"]), replace=False))]
+    out = [Prompt(f"calib_aa{r['id']:03d}", "calib_open", [{"role": "user", "content": r["question"]}]) for r in pick]
+    instr = cfg["evaluation"]["gsm8k_instruction"]
+    for r in _jsonl(cfg["calibration"]["gsm8k_file"]):
+        out.append(Prompt(r["id"], "calib_gsm8k", [{"role": "user", "content": f"{instr}\n\n{r['question']}"}],
+                          {"answer": r["answer"]}))
+    return out
+
+
+def benchmark_prompts(name: str, cfg: dict, exp: dict, prefix: str | None = None) -> list[Prompt]:
+    b = cfg["evaluation"]["benchmarks"][name]
+    if name in ("sorh", "sorh_descored"):
+        rows = _jsonl(b["file"])
+        return [Prompt(f"srh{r['id']}", name, [{"role": "user", "content": with_prefix(r[b["field"]], prefix)}],
+                       {"user": r["user"], "user_descored": r["user_descored"], "cat": r["cat"]}) for r in rows]
+    if name == "gsm8k":
+        instr = cfg["evaluation"]["gsm8k_instruction"]
+        return [Prompt(r["id"], name, [{"role": "user", "content": with_prefix(f"{instr}\n\n{r['question']}", prefix)}],
+                       {"answer": r["answer"]}) for r in _jsonl(b["file"])]
+    if name == "persona":
+        # held-out roles x validation questions, prompt variant 0, baseline (no grading prefix)
+        reqs = [r for r in build_requests(exp, "main", include_default=False)
+                if r.role_split == "heldout" and r.question_split == "validation"
+                and r.prompt_variant == 0 and r.condition == "baseline"]
+        return [Prompt(r.id, name, [dict(m) for m in r.messages],
+                       {"role": r.role, "question_id": r.question_id, "question": r.question}) for r in reqs]
+    raise KeyError(name)
+
+
+def natural_prefix(condition: str, exp: dict) -> str | None:
+    if condition.startswith("natural_"):
+        return condition_texts(exp)[condition[len("natural_"):]]
+    return None
+
+
+# ---------------------------------------------------------------------------
+# GSM8K scoring
+# ---------------------------------------------------------------------------
+
+_NUM = re.compile(r"-?\d[\d,]*\.?\d*")
+
+
+def extract_number(text: str) -> str | None:
+    boxed = re.findall(r"\\boxed\{([^{}]*)\}", text or "")
+    cand = boxed[-1] if boxed else text or ""
+    nums = _NUM.findall(cand.replace("$", ""))
+    if not nums:
+        return None
+    return nums[-1].replace(",", "").rstrip(".")
+
+
+def gsm8k_correct(answer_text: str, gold: str) -> bool | None:
+    got = extract_number(answer_text)
+    if got is None:
+        return None
+    try:
+        return abs(float(got) - float(gold)) < 1e-6
+    except ValueError:
+        return None

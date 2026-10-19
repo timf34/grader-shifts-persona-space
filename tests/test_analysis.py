@@ -139,3 +139,16 @@ def test_crossmodel_comparison(tmp_path, monkeypatch, exp):
     assert pb["g_norm_over_act_norm"]["lo"] > 0
     assert pb["mean_loo_cos"]["mean_diff"] > 0
     assert "rsa_persona_distances_baseline" in res["primary"]["resp"]["auto_minus_baseline"]["second_order"]
+
+
+def test_smoke_grid_analysis_runs(tmp_path, monkeypatch):
+    """The pod smoke test analyses a ~190-generation grid; it must not trip on tiny shapes."""
+    monkeypatch.setenv("GSHIFT_OUTPUTS", str(tmp_path))
+    from gshift.analysis.report import analyze_model
+    from gshift.config import load_experiment
+    from gshift.smoke import smoke_experiment
+
+    exp = smoke_experiment(load_experiment())
+    write_synthetic_model("smoke", exp, stages=("main", "paraphrase", "followup"))
+    s = analyze_model("smoke", exp, make_plots=True, reps=("pre", "resp"), layers=[36])
+    assert s["results"]["resp"]["36"]["pooled"]["auto_minus_baseline"]["n_roles"] == 3

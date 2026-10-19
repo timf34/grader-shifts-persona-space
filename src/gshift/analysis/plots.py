@@ -119,7 +119,7 @@ def plot_layer_block(fig_dir: Path, rep: str, L: int, res: dict, cells, mu, mu_d
         pdef = None
         if mu_def is not None and np.all(np.isfinite(mu_def)):
             pdef = (project(pca, mu_def[ib][None], 3)[0], project(pca, mu_def[conds.index(c)][None], 3)[0])
-        for dims in ((0, 1), (0, 2)):
+        for dims in [d for d in ((0, 1), (0, 2)) if max(d) < Pb.shape[1]]:
             plot_arrows(fig_dir / f"arrows_{rep}_L{L}_{c}_pc{dims[0] + 1}{dims[1] + 1}.png", Pb, Pc, cells.roles,
                         cats, f"{rep} L{L}: baseline -> {c} (PCA fit on discovery roles; squares = held-out)",
                         dims, pdef, set(heldout or []))
