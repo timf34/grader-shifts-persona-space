@@ -1,4 +1,6 @@
-"""Prompt sets for Q2: calibration, School of Reward Hacks, GSM8K and the persona check."""
+"""Prompt sets for Q2: calibration, School of Reward Hacks, GSM8K, the held-out behavioural
+suites (TruthfulQA MC1, open-ended traits: extra_benchmarks.py) and the persona check.
+Calibration prompts are checked to share no item with any held-out suite."""
 
 from __future__ import annotations
 
@@ -45,7 +47,32 @@ def calibration_prompts(cfg: dict, exp: dict) -> list[Prompt]:
     for r in _jsonl(cfg["calibration"]["gsm8k_file"]):
         out.append(Prompt(r["id"], "calib_gsm8k", [{"role": "user", "content": f"{instr}\n\n{r['question']}"}],
                           {"answer": r["answer"]}))
+    assert_disjoint_from_heldout(out, cfg)
     return out
+
+
+def heldout_texts(cfg: dict) -> dict[str, set[str]]:
+    """Item texts of the held-out behavioural suites (never used for calibration)."""
+    from .extra_benchmarks import load_trait_questions, load_truthfulqa
+
+    out = {"truthfulqa": {r["question"].strip() for r in load_truthfulqa()},
+           "trait_openended": {q["question"].strip() for q in load_trait_questions()}}
+    ev = cfg["evaluation"]["benchmarks"]
+    if "gsm8k" in ev:
+        out["gsm8k_test"] = {r["question"].strip() for r in _jsonl(ev["gsm8k"]["file"])}
+    if "sorh" in ev:
+        out["sorh"] = {r["user_descored"].strip() for r in _jsonl(ev["sorh"]["file"])}
+    return out
+
+
+def assert_disjoint_from_heldout(prompts: list[Prompt], cfg: dict) -> None:
+    held = heldout_texts(cfg)
+    for p in prompts:
+        text = p.messages[-1]["content"]
+        for name, items in held.items():
+            hit = next((q for q in items if q and q in text), None)
+            if hit is not None:
+                raise ValueError(f"calibration prompt {p.id} contains a held-out {name} item: {hit[:80]!r}")
 
 
 def benchmark_prompts(name: str, cfg: dict, exp: dict, prefix: str | None = None) -> list[Prompt]:
@@ -58,6 +85,14 @@ def benchmark_prompts(name: str, cfg: dict, exp: dict, prefix: str | None = None
         instr = cfg["evaluation"]["gsm8k_instruction"]
         return [Prompt(r["id"], name, [{"role": "user", "content": with_prefix(f"{instr}\n\n{r['question']}", prefix)}],
                        {"answer": r["answer"]}) for r in _jsonl(b["file"])]
+    if name == "truthfulqa":
+        from .extra_benchmarks import truthfulqa_prompts
+
+        return truthfulqa_prompts(cfg, prefix)
+    if name == "trait_openended":
+        from .extra_benchmarks import trait_prompts
+
+        return trait_prompts(cfg, prefix)
     if name == "persona":
         # held-out roles x validation questions, prompt variant 0, baseline (no grading prefix)
         reqs = [r for r in build_requests(exp, "main", include_default=False)

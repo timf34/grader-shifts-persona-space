@@ -25,6 +25,7 @@ import numpy as np
 from ..analysis.stats import cos
 from ..io import model_dir, read_jsonl
 from ..templates import prompt_token_ids, split_generation
+from .vectors import direction_scale
 
 
 def _natural(model_key: str, rep: str, L: int, group: str = "pooled", contrast: str = "auto_minus_baseline"):
@@ -41,7 +42,6 @@ def run_activation_check(model, tokenizer, spec, prompts, manifest: dict, vector
     from ..hooks import add_to_residual
 
     L = int(manifest["layer"])
-    A = float(manifest["activation_norm"])
     layers = sorted(set([L] + list(downstream)))
     ex = Extractor(model, tokenizer, layers, True, spec.chat_template_kwargs)
     out: dict[str, Any] = {"layer": L, "strength": strength, "downstream_layers": downstream, "pre": {}, "resp": {}}
@@ -50,7 +50,7 @@ def run_activation_check(model, tokenizer, spec, prompts, manifest: dict, vector
     nat_pre = {Lx: _natural(spec.key, "pre", Lx) for Lx in downstream}
     for d in directions:
         for sign in (1, -1):
-            v = torch.tensor(sign * strength * A * vectors[d], dtype=torch.float32)
+            v = torch.tensor(direction_scale(manifest, d, sign * strength) * vectors[d], dtype=torch.float32)
             with add_to_residual(model, L, v):
                 st = np.stack([ex.prompt_last(i) for i in ids]).astype(np.float64)
             delta = (st - base).mean(0)
@@ -86,7 +86,6 @@ def _response_check(ex, model, spec, gen_dir: Path, manifest, vectors, strength,
     from ..hooks import add_to_residual
 
     L = int(manifest["layer"])
-    A = float(manifest["activation_norm"])
     unsteered = {r["id"]: r for r in read_jsonl(gen_dir / "none.jsonl")}
     nat = {Lx: _natural(spec.key, "resp", Lx) for Lx in layers}
     base_means = {i: _resp_mean(ex, r) for i, r in unsteered.items()}
@@ -99,7 +98,7 @@ def _response_check(ex, model, spec, gen_dir: Path, manifest, vectors, strength,
         if not recs or abs(abs(recs[0]["signed_strength"]) - strength) > 1e-9:
             continue
         d, signed = recs[0]["direction"], recs[0]["signed_strength"]
-        v = torch.tensor(signed * A * vectors[d], dtype=torch.float32)
+        v = torch.tensor(direction_scale(manifest, d, signed) * vectors[d], dtype=torch.float32)
         ctx_d, txt_d = [], []
         for r in recs:
             b = base_means.get(r["id"])

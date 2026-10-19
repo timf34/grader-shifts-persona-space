@@ -1,8 +1,20 @@
 """The steering set for one model: our directions, Betley-style directions, random controls.
 
 Every direction is stored as a UNIT vector at our layer convention (input of block L);
-the applied vector is strength x A_L x unit, with A_L the model's mean residual norm at L
-(Betley et al.'s scale), so all directions are norm-matched at a given strength.
+the applied vector is strength x A_L x norm_factor x unit, with A_L the model's mean
+residual norm at L (Betley et al.'s scale). norm_factor is 1 for every direction except
+the original-contribution decomposition components, so all other directions are
+norm-matched at a given strength.
+
+Decomposition (configs/steering.yaml `projections`): for the discovery-only orthonormal
+baseline PCA basis U_k of the source direction's group / representation / layer,
+g_par = U_k U_k^T g and g_perp = g - g_par. "<src>_in_k<k>" / "<src>_out_k<k>" steer
+along unit(g_par) / unit(g_perp) with norm_factor ||component|| / ||g||, i.e. exactly the
+component's share of strength x A_L x g/||g|| (never renormalised); "..._mn" are the same
+directions at matched norm (norm_factor 1), skipped when the component is numerically
+negligible (||component|| / ||g|| < min_component_frac). Ranks are capped at the PCA's
+empirical rank. "Inside/outside the baseline PCA subspace" is the only claim: a residual
+outside this sampled subspace is not thereby outside all persona representations.
 """
 
 from __future__ import annotations
@@ -71,6 +83,11 @@ def build_steering_set(model_key: str, cfg: dict[str, Any]) -> dict[str, Any]:
         H = u.size
         np.save(out / f"{name}.npy", u)
         manifest["directions"][name] = {"source": src, "raw_norm": float(np.linalg.norm(v)), "kind": "recovered"}
+    raw: dict[str, np.ndarray] = {}
+    for name, d in cfg["directions"].items():
+        if name in manifest["directions"] and d["source"] == "analysis":
+            raw[name] = np.load(adir / f"{d['group']}_{d['rep']}_L{L}_{d['contrast']}.npy").astype(np.float64)
+    add_projections(manifest, cfg, raw, adir, L, out)
     rnd = cfg.get("random_directions", {})
     rng = np.random.default_rng(int(rnd.get("seed", 0)))
     for k in range(int(rnd.get("n", 0))):
@@ -84,6 +101,57 @@ def build_steering_set(model_key: str, cfg: dict[str, Any]) -> dict[str, Any]:
     write_gguf_files(model_key, manifest)
     write_json(steering_dir(model_key) / "vectors.json", manifest)
     return manifest
+
+
+def add_projections(manifest: dict[str, Any], cfg: dict[str, Any], raw: dict[str, np.ndarray], adir: Path, L: int,
+                    out: Path) -> None:
+    """Inside / outside the baseline PCA subspace components of the source directions."""
+    pc = cfg.get("projections") or {}
+    manifest.setdefault("skipped", {})
+    min_frac = float(pc.get("min_component_frac", 0.1))
+    for src in pc.get("sources", []):
+        if src not in raw:
+            manifest["skipped"][src] = "projection source is not an analysis direction of this model"
+            continue
+        d = cfg["directions"][src]
+        g = raw[src]
+        gn = float(np.linalg.norm(g))
+        V = np.load(adir / f"{d['group']}_{d['rep']}_L{L}_baseline_pcs.npy").astype(np.float64)
+        done = set()
+        for k in pc.get("ranks", []):
+            kk = min(int(k), len(V))
+            if kk in done or kk == 0:
+                continue
+            done.add(kk)
+            par = V[:kk].T @ (V[:kk] @ g)
+            for side, comp in (("in", par), ("out", g - par)):
+                frac = float(np.linalg.norm(comp) / gn)
+                name = f"{src}_{side}_k{kk}"
+                label = (f"{'inside' if side == 'in' else 'outside'} the rank-{kk} baseline PCA subspace "
+                         f"({d['group']}/{d['rep']}, discovery roles)")
+                if frac < 1e-6:
+                    manifest["skipped"][name] = f"component norm {frac:.2e} x ||g||: nothing to steer along"
+                    continue
+                u = _unit(comp)
+                common = {"kind": "projection", "projection_of": src, "rank": kk, "requested_rank": int(k),
+                          "side": side, "component_norm_frac": frac, "source": f"{src} decomposed on "
+                          f"analysis/vectors/{d['group']}_{d['rep']}_L{L}_baseline_pcs.npy"}
+                np.save(out / f"{name}.npy", u)
+                manifest["directions"][name] = {**common, "norm_factor": frac,
+                                                "label": label + ", original contribution"}
+                if frac < min_frac:
+                    manifest["skipped"][name + "_mn"] = (f"matched-norm version not run: component is "
+                                                         f"{frac:.3f} < {min_frac} of ||g|| (not renormalised)")
+                    continue
+                np.save(out / f"{name}_mn.npy", u)
+                manifest["directions"][name + "_mn"] = {**common, "norm_factor": 1.0,
+                                                        "label": label + ", matched norm"}
+
+
+def direction_scale(manifest: dict[str, Any], direction: str, signed_strength: float) -> float:
+    """Signed scale of the applied vector: strength x A_L x norm_factor (x unit direction)."""
+    nf = float(manifest.get("directions", {}).get(direction, {}).get("norm_factor", 1.0))
+    return float(signed_strength) * float(manifest["activation_norm"]) * nf
 
 
 def write_gguf_files(model_key: str, manifest: dict[str, Any]) -> dict[str, Path]:

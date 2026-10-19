@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 from ..io import read_jsonl, write_json
+from .extra_benchmarks import trait_summary, truthfulqa_score_record
 from .metrics import response_metrics
 from .tasks import gsm8k_correct
 
@@ -21,15 +22,27 @@ PRIMARY = {
     "sorh_descored": ["quality", "no_answer", "refusal", "n_answer_tokens", "n_reasoning_tokens", "n_bullets",
                       "n_headers", "n_bold"],
     "gsm8k": ["correct", "no_answer", "n_answer_tokens", "n_reasoning_tokens", "truncated"],
+    # held-out behavioural suites (primary): TruthfulQA accuracy (unparsed / no answer count
+    # as wrong and are reported separately) and per-trait expression scores
+    "truthfulqa": ["correct", "unparsed", "no_answer", "refusal", "n_answer_tokens", "n_reasoning_tokens"],
 }
+TRAIT_METRICS = ["trait_score", "judge_refusal", "no_answer", "n_answer_tokens"]
 
 
-def per_sample_table(gen_root: Path, judge_path: Path | None) -> pd.DataFrame:
+def metrics_for(bench: str) -> list[str]:
+    """Trait rows are split per trait (benchmark "trait:<trait>"): traits are not pooled."""
+    return TRAIT_METRICS if bench.startswith("trait:") else PRIMARY.get(bench, [])
+
+
+def per_sample_table(gen_root: Path, judge_path: Path | None, trait_judge_path: Path | None = None) -> pd.DataFrame:
     rows = []
-    judged = {}
+    judged, tjudged = {}, {}
     if judge_path is not None and judge_path.exists():
         for r in read_jsonl(judge_path):
             judged[(r["id"], r["condition"])] = r
+    if trait_judge_path is not None and trait_judge_path.exists():
+        for r in read_jsonl(trait_judge_path):
+            tjudged[(r["id"], r["condition"])] = r
     for bdir in sorted(p for p in gen_root.iterdir() if p.is_dir()):
         for f in sorted(bdir.glob("*.jsonl")):
             for r in read_jsonl(f):
@@ -46,6 +59,15 @@ def per_sample_table(gen_root: Path, judge_path: Path | None) -> pd.DataFrame:
                     for k in ("metric", "quality", "gap"):
                         row[k] = j.get(k) if j.get(k) is not None else np.nan
                     row["unparsed"] = float(bool(j.get("unparsed")))
+                if r["benchmark"] == "truthfulqa":
+                    sc = truthfulqa_score_record(r)
+                    row["correct"] = float(sc["correct"])
+                    row["unparsed"] = float(sc["unparsed"])
+                if r["benchmark"] == "trait_openended":
+                    j = tjudged.get((r["id"], r["condition"]), {})
+                    row["benchmark"] = f"trait:{r['meta']['trait']}"
+                    row["trait_score"] = j["score"] if j.get("score") is not None else np.nan
+                    row["judge_refusal"] = float(j["refusal"]) if j.get("refusal") is not None else np.nan
                 rows.append(row)
     return pd.DataFrame(rows)
 
@@ -54,7 +76,7 @@ def paired_effects(df: pd.DataFrame, n_boot: int = 2000, seed: int = 0) -> pd.Da
     rng = np.random.default_rng(seed)
     out = []
     for bench, sub in df.groupby("benchmark"):
-        metrics = [m for m in PRIMARY.get(bench, []) if m in sub]
+        metrics = [m for m in metrics_for(bench) if m in sub]
         base = sub[sub["condition"] == "none"].set_index("id")
         for cond, s in sub.groupby("condition"):
             s = s.set_index("id")
@@ -89,7 +111,7 @@ def random_band(eff: pd.DataFrame) -> pd.DataFrame:
 
 
 def behaviour_summary(model_key: str, steer_dir: Path) -> dict[str, Any]:
-    df = per_sample_table(steer_dir / "gen", steer_dir / "sorh_judgements.jsonl")
+    df = per_sample_table(steer_dir / "gen", steer_dir / "sorh_judgements.jsonl", steer_dir / "trait_judgements.jsonl")
     df = df[df["benchmark"] != "persona"]
     (steer_dir / "tables").mkdir(exist_ok=True)
     df.to_csv(steer_dir / "tables" / "per_sample.csv", index=False)
@@ -97,12 +119,33 @@ def behaviour_summary(model_key: str, steer_dir: Path) -> dict[str, Any]:
     eff.to_csv(steer_dir / "tables" / "effects_vs_unsteered.csv", index=False)
     vs = random_band(eff)
     vs.to_csv(steer_dir / "tables" / "effects_vs_random_band.csv", index=False)
+    tqa = df[df["benchmark"] == "truthfulqa"]
+    labels = {}
+    man_path = steer_dir / "vectors.json"
+    if man_path.exists():
+        import json
+
+        man = json.loads(man_path.read_text())
+        labels = {n: d.get("label", d.get("source")) for n, d in man["directions"].items()}
+        labels["_skipped"] = man.get("skipped", {})
     summ = {"model_key": model_key, "n_samples": int(len(df)),
             "conditions": sorted(df["condition"].unique().tolist()),
+            "truthfulqa_by_condition": {c: {"accuracy": float(s["correct"].mean()), "n": int(len(s)),
+                                            "unparsed_rate": float(s["unparsed"].mean()),
+                                            "no_answer_rate": float(s["no_answer"].mean())}
+                                        for c, s in tqa.groupby("condition")} if len(tqa) else {},
+            "trait_summary": trait_summary(read_jsonl(steer_dir / "trait_judgements.jsonl")),
+            "direction_labels": labels,
             "effects": eff.to_dict(orient="records"), "vs_random": vs.to_dict(orient="records"),
             "notes": ["Natural-context effects are rows natural_auto / natural_human (unsteered + Q1 prefix).",
                       "GSM8K 'correct' counts a missing/truncated answer as wrong; 'no_answer' reports it separately.",
-                      "SoRH metric/quality/gap exclude no-answer and unparsed samples (reported separately)."]}
+                      "SoRH metric/quality/gap exclude no-answer and unparsed samples (reported separately).",
+                      "TruthfulQA and trait questions are held-out validation suites, never used for calibration; "
+                      "TruthfulQA counts unparsed / no-answer as wrong (rates reported separately); trait scores "
+                      "exclude refusals, truncated and no-answer replies (rates in trait_summary) and are never "
+                      "pooled across traits.",
+                      "Decomposition directions (<src>_in/out_k<k>[_mn]) are inside / outside the discovery-only "
+                      "baseline PCA subspace; outside it is not outside all persona representations."]}
     write_json(steer_dir / "behaviour_summary.json", summ)
     _plot(eff, steer_dir / "figures")
     return summ
@@ -136,5 +179,5 @@ def _plot(eff: pd.DataFrame, fig_dir: Path) -> None:
         ax.set_title(f"{bench}: {metric} (grey = random directions)", fontsize=9)
         ax.legend(fontsize=7)
         fig.tight_layout()
-        fig.savefig(fig_dir / f"{bench}_{metric}.png", dpi=130)
+        fig.savefig(fig_dir / f"{bench.replace(':', '_')}_{metric}.png", dpi=130)
         plt.close(fig)

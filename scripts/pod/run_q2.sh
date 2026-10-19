@@ -60,7 +60,7 @@ step "activation check (HF)"
 $PY -u scripts/13_steer_activation_check.py --model "$MODEL" $SM > "$LOGDIR/activation_check.log" 2>&1 || \
   state "!! activation check failed (see activation_check.log)"
 
-if [ -n "${ANTHROPIC_API_KEY:-}" ] || [ -n "${OPENAI_API_KEY:-}" ]; then
+if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
   step "judges (School of Reward Hacks, trait rubric)"
   $PY -u scripts/12_steer_judge.py --model "$MODEL" $SM > "$LOGDIR/steer_judge.log" 2>&1 || \
     state "!! judging failed (re-run scripts/12_steer_judge.py)"

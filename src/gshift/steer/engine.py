@@ -15,7 +15,8 @@ Prompts are sent as TOKEN IDS rendered by the HF tokenizer with the model's temp
 kwargs (thinking on, Qwen3.8 reasoning_effort), so steered and Q1 prompts are identical.
 
 Condition names:  none | natural_auto | natural_human | <direction>_<+|-><strength>
-applied vector = sign x strength x A_L x unit(direction).
+applied vector = sign x strength x A_L x norm_factor x unit(direction) (norm_factor = 1
+except original-contribution decomposition components, see steer/vectors.py).
 """
 
 from __future__ import annotations
@@ -116,9 +117,11 @@ def generate_condition(client: SteerClient, tokenizer, spec: ModelSpec, prompts:
     todo = [p for p in prompts if p.id not in done]
     if not todo:
         return 0
+    from .vectors import direction_scale
+
     direction, signed = parse_condition(condition)
     L = int(manifest["layer"])
-    scale = signed * float(manifest["activation_norm"])
+    scale = direction_scale(manifest, direction, signed) if direction else 0.0
     steering = None if direction is None else steering_spec(gguf_paths[direction], L, scale)
     info = inspect_template(tokenizer, True, spec.chat_template_kwargs)
     ids = [prompt_token_ids(tokenizer, p.messages, True, spec.chat_template_kwargs) for p in todo]

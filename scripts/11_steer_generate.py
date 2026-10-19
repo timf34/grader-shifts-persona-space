@@ -29,6 +29,8 @@ from gshift.steer.vectors import gguf_paths, load_steering_set, steering_dir
 
 
 def eval_conditions(cfg: dict, man: dict, strengths: list[float]) -> list[str]:
+    """none + natural_* + recovered directions at +-{s*/2, s*} + random and decomposition
+    (inside / outside the baseline PCA subspace) directions at +-s*."""
     ev = cfg["evaluation"]
     conds = list(ev["conditions"])
     for d in ev["steered_directions"]:
@@ -38,6 +40,8 @@ def eval_conditions(cfg: dict, man: dict, strengths: list[float]) -> list[str]:
     for d, info in man["directions"].items():
         if info["kind"] == "random":
             conds += [condition_name(d, sg * s_max) for sg in ev.get("random_signs", [1])]
+        if info["kind"] == "projection":
+            conds += [condition_name(d, sg * s_max) for sg in ev.get("projection_signs", [1, -1])]
     return conds
 
 

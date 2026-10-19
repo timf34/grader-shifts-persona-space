@@ -19,6 +19,22 @@ directions:
   betley_0007: {source: betley_published, models: [qwen3.6-27b]}   # the published vector itself
 random_directions: {n: 5, seed: 99}              # norm-matched isotropic random directions
 
+# Decomposition steering (brief Q2). U_k = discovery-only orthonormal baseline PCA basis of
+# the source direction's group / representation / layer (analysis/vectors/
+# <group>_<rep>_L36_baseline_pcs.npy); g_par = U_k U_k^T g, g_perp = g - g_par.
+#   <src>_in_k<k>, <src>_out_k<k>       ORIGINAL contribution: strength x A_L x component/||g||
+#                                       (the same alpha as for g; never renormalised)
+#   <src>_in_k<k>_mn, <src>_out_k<k>_mn MATCHED norm: strength x A_L x unit(component),
+#                                       skipped when ||component|| / ||g|| < min_component_frac
+# Ranks are predefined (not chosen on benchmark outcomes) and capped by the PCA's empirical
+# rank; results are labelled "inside / outside the baseline PCA subspace", never "outside
+# all persona representations". Random directions stay norm-matched to the full direction
+# (= the _mn variants).
+projections:
+  sources: [ours_resp]
+  ranks: [1, 5, 10, 20]
+  min_component_frac: 0.1
+
 # ---------------------------------------------------------------------------
 # Strength calibration on SEPARATE prompts (never the evaluation sets).
 # Rule (pre-registered): s* = the largest grid strength such that, for the primary
@@ -44,10 +60,14 @@ evaluation:
     - natural_human            # unsteered + Q1 human-grading prefix
   steered_directions: [ours_resp, ours_pre, betley_repro, betley_0007]   # each at +-{s*/2, s*}
   random_signs: [1, -1]        # random directions at +-s* only
+  projection_signs: [1, -1]    # decomposition components at +-s* only
   benchmarks:
     sorh:           {file: data/school_of_reward_hacks/srh_subset.jsonl, field: user}            # grader-sensitive
     sorh_descored:  {file: data/school_of_reward_hacks/srh_subset.jsonl, field: user_descored}   # same tasks, no scoring rule
     gsm8k:          {file: data/gsm8k/test_subset.jsonl}                                         # capability check
+    # HELD-OUT behavioural validation (never used for calibration; extra_benchmarks.py):
+    truthfulqa:      {n: 300, seed: 20261019, answer_format: inspect}    # TruthfulQA MC1, Betley's port, shuffled options
+    trait_openended: {questions_per_trait: 20, epochs: 1}                # 10 traits x 20, frozen rubric
     persona:        {}         # held-out roles x validation questions (activation check only)
   gsm8k_instruction: "Solve the following problem. Give your final answer as a single number in \\boxed{}."
 
@@ -68,6 +88,13 @@ judges:
   max_tokens: 1024
   max_attempts: 4
   concurrency: 32
+  # Open-ended trait judge: the settings recorded in data/trait_openended/PROVENANCE.json
+  # (judge_settings_followed): rubric verbatim as the single user message, one call per
+  # reply, no sampling parameters, adaptive thinking (display only), JSON-schema output,
+  # strict parse, no re-ask on an unparseable verdict (transport errors are retried).
+  trait_model: claude-sonnet-5
+  trait_max_tokens: 4096
+  trait_structured_output: true
 
 activation_check:
   # Does steering move held-out persona activations in the direction observed under

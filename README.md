@@ -109,6 +109,25 @@ both Qwen3.6 and Qwen3.8). `tests/test_gpu_code_on_cpu.py::test_pinned_stack` lo
 pinned revisions with it (config, layer types, special token ids, thinking on/off
 templates).
 
+## Q2: steering (configs/steering.yaml)
+
+Each model is steered along its own Q1 directions (pooled `auto_minus_baseline`, `resp`
+and `pre`), a Betley-style direction reproduced on the same model (plus the published
+0007 vector on Qwen3.6), 5 norm-matched random directions, and the decomposition of the
+primary direction into its parts inside / outside the discovery-only baseline PCA
+subspace at ranks 1, 5, 10, 20 (capped at the empirical rank), each at its original
+contribution and at matched norm (skipped, and recorded, when the component is < 0.1 of
+||g||). Strength is calibrated on separate prompts (Assistant Axis questions outside the
+manifest + GSM8K train; checked to share no item with any held-out suite) by the
+pre-registered rule, then evaluated at +-{s*/2, s*} (random and decomposition directions
+at +-s*). Benchmarks: School of Reward Hacks (proxy metric and independently judged
+quality, reported separately), TruthfulQA MC1 (Betley's port, shuffled options; held
+out), open-ended trait expression (10 traits x 20, frozen rubric, judge settings from
+`data/trait_openended/PROVENANCE.json`; held out), GSM8K capability, plus unsteered
+`natural_auto` / `natural_human` prefix conditions and an HF activation check (does
+steering move held-out persona activations like natural grading prompts do?). Before
+any of it, `run_q2.sh` verifies the steering path (docs/gpu_validation.md).
+
 ## Resumption and config ids
 
 Generation is resumable: a request is skipped iff a record with the same id **and** the

@@ -7,8 +7,9 @@
 > examiner/reviewer/hacker/saboteur added by a seeded swap, the brief's pilot size with
 > equal token budgets, the brief's w1 wording, wording-validation reuses main-grid
 > baselines via `baseline_id` (counted once), HF datasets public by default. Item 5 (Q2
-> additions) is the remaining work. The README is the current reference; the text below
-> is the original handoff.
+> additions) is done too: TruthfulQA + trait suites wired, trait judge, projection
+> directions. Next: smoke test and pilot on the pod (README "Running on RunPod"). The
+> README is the current reference; the text below is the original handoff.
 
 Branch: `claude/loving-clarke-4uxbqs` (WIP, **untested**). `main` = `b1aa2e8`, the last
 end-to-end-working version (design v2). Merge the branch into `main` only once the test
