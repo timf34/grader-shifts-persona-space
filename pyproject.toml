@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gshift"
+version = "0.1.0"
+description = "Mapping grading-induced shifts in persona space (Qwen3.6-27B / Qwen3.8-27B)"
+requires-python = ">=3.10"
+# CPU-side core: config, design, analysis, judges. GPU stacks are installed from
+# requirements/*.txt on the pod (see README), never from here.
+dependencies = [
+  "numpy>=1.26",
+  "scipy>=1.11",
+  "pandas>=2.0",
+  "pyyaml>=6",
+  "matplotlib>=3.8",
+  "tqdm",
+  "python-dotenv",
+]
+
+[project.optional-dependencies]
+judge = ["openai>=1.40", "anthropic>=0.40"]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
