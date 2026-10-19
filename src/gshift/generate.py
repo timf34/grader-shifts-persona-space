@@ -40,6 +40,11 @@ def config_identity(spec: ModelSpec, exp: dict[str, Any]) -> tuple[str, dict[str
         "generation": {k: gen.get(k) for k in SAMPLING_KEYS},
         "design_version": exp["design_version"], "placement": exp.get("placement"),
         "question_manifest": exp["question_manifest"], "question_manifest_sha": manifest_sha(exp),
+        # the context manipulation itself: any change to condition definitions, wording
+        # texts, their assignment rule or condition sets changes the config id
+        "conditions": exp.get("conditions"), "condition_sets": exp.get("condition_sets"),
+        "wording_templates": exp.get("wording_templates"), "wording_assignment": exp.get("wording_assignment"),
+        "followup_statement": exp.get("followup_statement"),
     }
     cid = hashlib.sha256(json.dumps(ident, sort_keys=True).encode()).hexdigest()[:16]
     return cid, ident
@@ -104,6 +109,10 @@ def run_generation(spec: ModelSpec, requests: list[Request], exp: dict[str, Any]
           f"{len(todo)} to go", flush=True)
     tokenizer = tokenizer or load_tokenizer(spec)
     enable_thinking = bool(gen_cfg.get("enable_thinking", True))
+    bad = [r.id for r in requests if r.enable_thinking != enable_thinking]
+    if bad:
+        raise RuntimeError(f"{len(bad)} requests (e.g. {bad[0]}) have enable_thinking != generation.enable_thinking "
+                           f"({enable_thinking}); thinking arms must be generated into separate output roots")
     tkw = spec.chat_template_kwargs
     info = inspect_template(tokenizer, enable_thinking, tkw)
     if info.notes:
@@ -113,7 +122,7 @@ def run_generation(spec: ModelSpec, requests: list[Request], exp: dict[str, Any]
         **(extra_meta or {})})
     if not todo:
         return 0
-    if enable_thinking and info.think_close_id is None:
+    if info.think_close_id is None:
         raise RuntimeError("thinking enabled but tokenizer has no single </think> token")
 
     from vllm.inputs import TokensPrompt

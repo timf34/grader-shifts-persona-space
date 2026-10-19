@@ -105,11 +105,33 @@ def manifest_sha(exp: dict[str, Any]) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
 
 
-def condition_texts(exp: dict[str, Any]) -> dict[str, str | None]:
-    out: dict[str, str | None] = {}
-    for key in ("conditions", "paraphrase_conditions", "followup_conditions"):
-        for name, text in (exp.get(key) or {}).items():
-            if name in out and out[name] != text:
-                raise ValueError(f"condition {name!r} defined twice with different text")
-            out[name] = text
-    return out
+def condition_def(exp: dict[str, Any], cond: str) -> dict[str, Any]:
+    """{evaluator, criterion} for a condition ('eval_awareness' = the follow-up statement)."""
+    if cond == "eval_awareness":
+        return {"evaluator": None, "criterion": "evaluation_awareness"}
+    if cond not in exp["conditions"]:
+        raise KeyError(f"unknown condition {cond!r}")
+    return dict(exp["conditions"][cond])
+
+
+def wording_set_of(exp: dict[str, Any], wording_id: str) -> str:
+    for s, ws in exp["wording_templates"].items():
+        if wording_id in ws:
+            return s
+    raise KeyError(f"unknown wording id {wording_id!r}")
+
+
+def statement(exp: dict[str, Any], cond: str, wording_id: str | None) -> str | None:
+    """Context statement for a condition under a wording template (None for baseline)."""
+    if cond == "baseline":
+        return None
+    if cond == "eval_awareness":
+        return exp["followup_statement"]
+    d = condition_def(exp, cond)
+    ws = exp["wording_templates"][wording_set_of(exp, wording_id)][wording_id]
+    return ws[f"{d['evaluator']}|{d['criterion']}"]
+
+
+def condition_texts(exp: dict[str, Any], wording_id: str = "w1") -> dict[str, str | None]:
+    """All condition statements under one wording (used for natural-context Q2 prompts)."""
+    return {c: statement(exp, c, wording_id) for c in exp["conditions"]}

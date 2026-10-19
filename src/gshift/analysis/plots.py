@@ -138,20 +138,22 @@ def plot_layer_block(fig_dir: Path, rep: str, L: int, res: dict, cells, mu, mu_d
 def plot_sweep(fig_dir: Path, sweep, primary_layer: int):
     plt = _plt()
     fig_dir.mkdir(parents=True, exist_ok=True)
-    metrics = ["g_norm_over_act_norm", "mean_loo_cos", "split_half_cos", "heldout_role_cos",
-               "heldout_question_cos", "heldout_both_cos", "sv1_energy_frac", "crossfit_d"] + \
-        [c for c in sweep.columns if c.startswith("cos_g_")]
+    metrics = [m for m in ["g_norm_over_act_norm", "mean_loo_cos", "split_half_cos", "heldout_role_cos",
+                           "heldout_question_cos", "heldout_both_cos", "sv1_energy_frac", "crossfit_dz"]
+               if m in sweep.columns] + [c for c in sweep.columns if c.startswith("cos_g_")]
     for (group, rep), sub in sweep.groupby(["group", "rep"]):
         fig, axes = plt.subplots(2, (len(metrics) + 1) // 2, figsize=(4 * ((len(metrics) + 1) // 2), 7))
         for ax, m in zip(axes.flat, metrics):
             for name, s in sub.groupby("contrast"):
-                ax.plot(s["layer"], s[m], "o-", label=name)
-                if m == "mean_loo_cos":
-                    ax.plot(s["layer"], s["loo_cos_null_q95"], ":", color="grey")
+                if s[m].isna().all():
+                    continue
+                ax.plot(s["layer"], s[m].astype(float), "o-", label=name)
+                if m == "mean_loo_cos" and "loo_cos_null_q95" in s:
+                    ax.plot(s["layer"], s["loo_cos_null_q95"].astype(float), ":", color="grey")
             ax.axvline(primary_layer, color="k", lw=0.5, ls="--")
             ax.set_title(m, fontsize=9)
             ax.set_xlabel("layer (block input)")
-        axes.flat[0].legend(fontsize=7)
+        axes.flat[0].legend(fontsize=6)
         fig.suptitle(f"layer sweep: {group} / {rep} (discovery estimates)", fontsize=10)
         fig.tight_layout()
         fig.savefig(fig_dir / f"sweep_{group}_{rep}.png", dpi=150)

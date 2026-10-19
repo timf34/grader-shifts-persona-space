@@ -38,7 +38,8 @@ REPS = ("pre", "resp", "reason")
 # request metadata copied into index.jsonl so analysis never has to parse the (large)
 # response files
 META_FIELDS = ("role", "category", "role_split", "prompt_variant", "question_id", "question_group",
-               "question_domain", "question_family", "question_split", "condition", "sample", "stage")
+               "question_domain", "question_family", "question_split", "condition", "evaluator", "criterion",
+               "wording_id", "wording_set", "enable_thinking", "sample", "stage")
 
 
 def text_config(config):

@@ -1,9 +1,13 @@
 """The experimental grid: which conversations get generated, and their metadata.
 
-A *unit* is (role, prompt variant, question id, sample). The same unit is generated under
-every condition, with the same sampling seed (common random numbers), so paired rows
-differ only in the one context sentence. Request ids carry no stage, so the baseline
-generated once in `main` is the matched baseline for every stage.
+A *block* is (question, prompt variant); a *unit* is (role, prompt variant, question,
+sample). Every condition of a unit uses the same sampling seed (common random numbers).
+Original questions get [baseline, auto, human]; checkable questions get [baseline,
+auto_correct, human_correct, auto_quality, human_quality] (configs/experiment.yaml
+condition_sets). In the main grid each block carries ONE discovery wording template
+(deterministic, balanced; identical across roles, conditions and models), and baseline is
+generated once per block. Request ids include the wording, so the reserved validation
+wordings can never collide with (or be mistaken for) discovery outputs.
 """
 
 from __future__ import annotations
@@ -12,7 +16,7 @@ import hashlib
 from dataclasses import asdict, dataclass
 from typing import Any, Iterator
 
-from .config import condition_texts, load_questions, load_role, role_categories
+from .config import condition_def, load_questions, load_role, role_categories, statement
 
 
 @dataclass(frozen=True)
@@ -23,18 +27,23 @@ class Request:
     category: str                  # role category ("default" for the control)
     role_split: str                # discovery | heldout | control
     prompt_variant: int
-    question_id: str               # stable manifest id
+    question_id: str
     question_group: str            # original | checkable
     question_domain: str
     question_family: str
     question_split: str            # discovery | validation
     condition: str
+    evaluator: str | None          # automated | human | None
+    criterion: str | None          # unspecified | correctness | quality | evaluation_awareness | None
+    wording_id: str                # w1..w3 (discovery), v1..v2 (validation), "none" (baseline), "eval"
+    wording_set: str               # discovery | validation | none | followup
+    enable_thinking: bool
     sample: int
     seed: int
     system_prompt: str | None      # None = no system message
-    question: str                  # ORIGINAL question (used for judging/matching)
+    question: str                  # ORIGINAL question (judging/matching)
     prefix: str | None             # context statement (None for baseline)
-    user_content: str              # actual user message (used for generation/replay)
+    user_content: str              # actual user message (generation/replay)
     messages: tuple[dict[str, str], ...]
 
     def to_dict(self) -> dict[str, Any]:
@@ -49,22 +58,22 @@ def unit_seed(base_seed: int, role: str, prompt_variant: int, question_id: str, 
     return int.from_bytes(hashlib.sha256(key).digest()[:4], "little") & 0x7FFFFFFF
 
 
-def request_id(role: str, pv: int, qid: str, cond: str, sample: int) -> str:
-    return f"{role}|p{pv}|{qid}|{cond}|s{sample}"
+def request_id(role: str, pv: int, qid: str, cond: str, wording: str, sample: int) -> str:
+    return f"{role}|p{pv}|{qid}|{cond}|{wording}|s{sample}"
 
 
-def build_messages(system_prompt: str | None, question: str, statement: str | None,
+def build_messages(system_prompt: str | None, question: str, statement_text: str | None,
                    placement: str) -> tuple[str | None, str]:
-    """Return (system, user). Plan default: user = "<prefix>\\n\\n<question>"."""
+    """Return (system, user). Plan default: user = "<statement>\\n\\n<question>"."""
     system = system_prompt if system_prompt else None
     user = question
-    if statement:
+    if statement_text:
         if placement == "user_prefix":
-            user = f"{statement}\n\n{question}"
+            user = f"{statement_text}\n\n{question}"
         elif placement == "user_suffix":
-            user = f"{question}\n\n{statement}"
+            user = f"{question}\n\n{statement_text}"
         elif placement == "system_suffix":
-            system = f"{system} {statement}" if system else statement
+            system = f"{system} {statement_text}" if system else statement_text
         else:
             raise ValueError(f"unknown placement {placement!r}")
     return system, user
@@ -75,6 +84,25 @@ def role_instruction(role: str, variant: int, model_short_name: str = "Qwen") ->
     return text.replace("{model_name}", model_short_name)   # literal, never .format
 
 
+def question_ranks(questions: list[dict]) -> dict[str, int]:
+    """Rank of each question within its (group, split), in manifest order."""
+    counters: dict[tuple[str, str], int] = {}
+    out = {}
+    for q in questions:
+        k = (q["group"], q["split"])
+        out[q["id"]] = counters.get(k, 0)
+        counters[k] = out[q["id"]] + 1
+    return out
+
+
+def discovery_wording(exp: dict[str, Any], rank: int, prompt_variant: int) -> str:
+    """Balanced deterministic assignment: discovery[(rank + prompt_variant) mod n]."""
+    ids = list(exp["wording_templates"]["discovery"])
+    if exp.get("wording_assignment", "rank_plus_variant_mod_3") != "rank_plus_variant_mod_3":
+        raise ValueError(f"unknown wording_assignment {exp.get('wording_assignment')!r}")
+    return ids[(rank + prompt_variant) % len(ids)]
+
+
 def _select_questions(rows: list[dict], which: str) -> list[dict]:
     if which == "all":
         return rows
@@ -83,23 +111,37 @@ def _select_questions(rows: list[dict], which: str) -> list[dict]:
     raise ValueError(f"unknown question selection {which!r}")
 
 
+def _stage_conditions(exp: dict, st: dict, group: str) -> list[str]:
+    if "conditions" in st:
+        return list(st["conditions"])
+    conds = list(exp["condition_sets"][group])
+    if st.get("grading_only"):
+        conds = [c for c in conds if c != "baseline"]
+    return conds
+
+
 def iter_requests(exp: dict[str, Any], stage: str, roles: list[str] | None = None,
-                  include_default: bool = True) -> Iterator[Request]:
-    st = exp["stages"][stage]
-    texts = condition_texts(exp)
-    for c in st["conditions"]:
-        if c not in texts:
-            raise KeyError(f"stage {stage}: condition {c!r} has no text defined")
+                  include_default: bool = True, enable_thinking: bool | None = None) -> Iterator[Request]:
+    """Requests of a stage. stage may be 'pilot' (uses the `pilot:` block)."""
+    if stage == "pilot":
+        pl = exp["pilot"]
+        st = {"prompt_variants": pl["prompt_variants"], "questions": pl["questions"], "wording_set": "discovery"}
+        roles = list(pl["roles"]) + ([exp["default_role"]] if include_default else []) if roles is None else roles
+    else:
+        st = exp["stages"][stage]
+    thinking = bool(exp["generation"]["enable_thinking"]) if enable_thinking is None else bool(enable_thinking)
     cats = role_categories(exp)
     heldout = set(exp["role_split"]["heldout"])
-    questions = _select_questions(load_questions(exp), st.get("questions", "all"))
+    all_q = load_questions(exp)
+    ranks = question_ranks(all_q)
+    questions = _select_questions(all_q, st.get("questions", "all"))
     placement = exp.get("placement", "user_prefix")
     gen = exp["generation"]
     n_samples = int(gen.get("samples_per_prompt", 1))
+    wset = st.get("wording_set")
 
     role_list: list[tuple[str, str, str, list[int]]] = [
-        (r, cats[r], "heldout" if r in heldout else "discovery", list(st["prompt_variants"])) for r in cats
-    ]
+        (r, cats[r], "heldout" if r in heldout else "discovery", list(st["prompt_variants"])) for r in cats]
     if include_default:
         dv = [v for v in exp["default_prompt_variants"] if v in st["prompt_variants"]] \
             or list(exp["default_prompt_variants"])[:1]
@@ -111,26 +153,35 @@ def iter_requests(exp: dict[str, Any], stage: str, roles: list[str] | None = Non
         for pv in variants:
             system_prompt = role_instruction(role, pv)
             for q in questions:
+                if wset == "discovery":
+                    wordings = [discovery_wording(exp, ranks[q["id"]], pv)]
+                elif wset == "validation":
+                    wordings = list(exp["wording_templates"]["validation"])
+                else:
+                    wordings = ["eval"]
                 for s in range(n_samples):
                     seed = unit_seed(int(gen["base_seed"]), role, pv, q["id"], s)
-                    for cond in st["conditions"]:
-                        statement = texts[cond]
-                        system, user = build_messages(system_prompt, q["text"], statement, placement)
-                        msgs = ([{"role": "system", "content": system}] if system else []) + [
-                            {"role": "user", "content": user}]
-                        yield Request(
-                            id=request_id(role, pv, q["id"], cond, s), stage=stage, role=role, category=cat,
-                            role_split=rsplit, prompt_variant=pv, question_id=q["id"],
-                            question_group=q["group"], question_domain=q["domain"], question_family=q["family"],
-                            question_split=q["split"], condition=cond, sample=s, seed=seed,
-                            system_prompt=system_prompt or None, question=q["text"], prefix=statement,
-                            user_content=user, messages=tuple(msgs),
-                        )
+                    for cond in _stage_conditions(exp, st, q["group"]):
+                        for w in (["none"] if cond == "baseline" else wordings):
+                            text = statement(exp, cond, None if w in ("none", "eval") else w)
+                            system, user = build_messages(system_prompt, q["text"], text, placement)
+                            msgs = ([{"role": "system", "content": system}] if system else []) + [
+                                {"role": "user", "content": user}]
+                            d = condition_def(exp, cond)
+                            yield Request(
+                                id=request_id(role, pv, q["id"], cond, w, s), stage=stage, role=role, category=cat,
+                                role_split=rsplit, prompt_variant=pv, question_id=q["id"], question_group=q["group"],
+                                question_domain=q["domain"], question_family=q["family"], question_split=q["split"],
+                                condition=cond, evaluator=d["evaluator"], criterion=d["criterion"], wording_id=w,
+                                wording_set="none" if w == "none" else ("followup" if w == "eval" else wset),
+                                enable_thinking=thinking, sample=s, seed=seed, system_prompt=system_prompt or None,
+                                question=q["text"], prefix=text, user_content=user, messages=tuple(msgs),
+                            )
 
 
 def build_requests(exp: dict[str, Any], stage: str, roles: list[str] | None = None,
-                   include_default: bool = True) -> list[Request]:
-    reqs = list(iter_requests(exp, stage, roles, include_default))
+                   include_default: bool = True, enable_thinking: bool | None = None) -> list[Request]:
+    reqs = list(iter_requests(exp, stage, roles, include_default, enable_thinking))
     ids = [r.id for r in reqs]
     if len(set(ids)) != len(ids):
         raise RuntimeError("duplicate request ids in design")

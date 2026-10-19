@@ -2,7 +2,8 @@
 """Stage 1 (GPU, vLLM): generate every request of the given stages for one model.
 
     python -u scripts/01_generate.py --model qwen3.6-27b --stages main
-    python -u scripts/01_generate.py --model qwen3.6-27b --stages main paraphrase followup
+    python -u scripts/01_generate.py --model qwen3.6-27b --stages wording_validation followup
+    python -u scripts/01_generate.py --model qwen3.6-27b --stages pilot --thinking off
     python -u scripts/01_generate.py --model qwen3.6-27b --stages main --smoke
     # 4 GPUs, one process each (roles partitioned):
     CUDA_VISIBLE_DEVICES=1 python -u scripts/01_generate.py --model ... --worker 1 --num-workers 4
@@ -32,7 +33,8 @@ def main():
     if not args.smoke:
         require_pinned(spec)
     roles = args.roles or worker_roles(exp, args)
-    reqs = [r for st in args.stages for r in build_requests(exp, st, roles)]
+    reqs = [r for st in args.stages for r in build_requests(exp, st, roles)] if "pilot" not in args.stages else \
+        [r for r in build_requests(exp, "pilot") if roles is None or r.role in roles]
     print(f"[generate] {len(reqs)} requests across stages {args.stages} (worker {args.worker}/{args.num_workers})")
     tok = load_tokenizer(spec)
     llm = build_llm(spec, exp["generation"], seed=int(exp["generation"]["base_seed"]))

@@ -4,23 +4,15 @@ Nearly every statistic is a function of the Gram matrix G = D D^T (R x R) and of
 a few reference vectors v, so the permutation null and the bootstrap only ever need
 G for each resample.
 
-Null: paired condition-label permutation. Under H0 (the statement has no effect) the two
-conditions of a unit are exchangeable, so each (role, unit) independently swaps its
-labels with probability 1/2. Units with a row in only one condition swap that row's
-label, which is also exchangeable under H0.
-
-Bootstrap: roles and questions resampled with replacement, the SAME question multiset
-for every role and condition (preserving the shared-question design). Pairs of copies of
-the same role are excluded from pairwise / leave-one-out statistics.
+Resampling (sign-flip null, roles x questions bootstrap) lives in contrast.py. In the
+bootstrap, pairs of copies of the same role are excluded from pairwise / leave-one-out
+statistics via `origin`.
 """
 
 from __future__ import annotations
 
-from typing import Callable
-
 import numpy as np
 
-from .cells import Cells, centroids
 
 
 # ---------------------------------------------------------------------------
@@ -171,77 +163,6 @@ def residual_category_structure(D: np.ndarray, categories: list[str], n_perm: in
             "p_value": float((1 + (null >= obs).sum()) / (1 + n_perm))}
 
 
-# ---------------------------------------------------------------------------
-# resampling (all functions take a MATCHED two-condition view: cells.conds == [a, b])
-# ---------------------------------------------------------------------------
-
-def _check_pair(cells: Cells) -> None:
-    if len(cells.conds) != 2:
-        raise ValueError("expected a matched two-condition view (Cells.matched(a, b))")
-
-
-def permutation_null(cells: Cells, n_perm: int, seed: int = 0, refs: dict[str, np.ndarray] | None = None,
-                     batch: int = 100, stat_fn: Callable[[np.ndarray], dict] | None = None) -> list[dict[str, float]]:
-    """Paired label-swap null for a - b: each (role, unit) swaps its two rows w.p. 1/2."""
-    _check_pair(cells)
-    Sa, Sb = cells.S[:, 0], cells.S[:, 1]           # [R, U, H]
-    Na, Nb = cells.N[:, 0], cells.N[:, 1]
-    R, U, H = Sa.shape
-    dS = (Sb - Sa).astype(np.float32)
-    dN = Nb - Na
-    Sa_tot, Sb_tot = Sa.sum(1, dtype=np.float64), Sb.sum(1, dtype=np.float64)
-    Na_tot, Nb_tot = Na.sum(1), Nb.sum(1)
-    rng = np.random.default_rng(seed)
-    refs = refs or {}
-    vnorm = {k: float(np.linalg.norm(v)) for k, v in refs.items()}
-    out = []
-    for start in range(0, n_perm, batch):
-        P = min(batch, n_perm - start)
-        F = rng.integers(0, 2, size=(R, P, U)).astype(np.float32)
-        FdS = np.matmul(F, dS).astype(np.float64)    # [R, P, H] batched BLAS
-        FdN = np.einsum("rpu,ru->rp", F.astype(np.float64), dN)
-        with np.errstate(invalid="ignore", divide="ignore"):
-            D = ((Sa_tot[:, None] + FdS) / (Na_tot[:, None] + FdN)[..., None]
-                 - (Sb_tot[:, None] - FdS) / (Nb_tot[:, None] - FdN)[..., None]).transpose(1, 0, 2)
-        D = np.nan_to_num(D)
-        for p in range(P):
-            Dp = D[p]
-            if stat_fn is not None:
-                out.append(stat_fn(Dp))
-            else:
-                out.append(gram_stats(Dp @ Dp.T, Dv={k: Dp @ v for k, v in refs.items()}, vnorm=vnorm))
-    return out
-
-
-def question_weights(rng, uq: np.ndarray) -> np.ndarray:
-    """Resample questions with replacement; every unit of a question (all its prompt
-    variants) carries that question's multiplicity -- preserves the repeated-prompt and
-    shared-question structure (same draw for all roles and conditions)."""
-    qs = np.unique(uq)
-    draw = rng.choice(qs, size=len(qs), replace=True)
-    mult = dict(zip(*np.unique(draw, return_counts=True)))
-    return np.array([mult.get(q, 0) for q in uq], dtype=np.float64)
-
-
-def bootstrap(cells: Cells, n_boot: int, seed: int = 0, refs: dict[str, np.ndarray] | None = None,
-              resample_roles: bool = True, resample_questions: bool = True) -> list[dict[str, float]]:
-    """Two-way (roles x questions) bootstrap of gram_stats for the matched view a - b."""
-    _check_pair(cells)
-    rng = np.random.default_rng(seed)
-    uq = cells.unit_question()
-    R = len(cells.roles)
-    refs = refs or {}
-    vnorm = {k: float(np.linalg.norm(v)) for k, v in refs.items()}
-    out = []
-    for _ in range(n_boot):
-        w = question_weights(rng, uq) if resample_questions else np.ones(len(uq))
-        ridx = rng.integers(0, R, size=R) if resample_roles else np.arange(R)
-        mu = centroids(cells, w)                    # all roles once, then pick copies
-        D = np.nan_to_num(mu[ridx, 0] - mu[ridx, 1])
-        out.append(gram_stats(D @ D.T, origin=ridx, Dv={k: D @ v for k, v in refs.items()}, vnorm=vnorm))
-    return out
-
-
 def summarise_null(observed: dict[str, float], null: list[dict[str, float]]) -> dict[str, dict]:
     out = {}
     for k, v in observed.items():
@@ -275,19 +196,13 @@ def summarise_boot(boot: list[dict[str, float]], level: float = 0.95) -> dict[st
 
 
 # ---------------------------------------------------------------------------
-# generalisation and stability
+# helpers
 # ---------------------------------------------------------------------------
+
 
 def cos(a: np.ndarray, b: np.ndarray) -> float:
     na, nb = np.linalg.norm(a), np.linalg.norm(b)
     return float(a @ b / (na * nb)) if na > 0 and nb > 0 else float("nan")
-
-
-def disp(cells: Cells, w: np.ndarray | None = None) -> np.ndarray:
-    """Delta [R, H] for a matched two-condition view."""
-    _check_pair(cells)
-    mu = centroids(cells, w)
-    return np.nan_to_num(mu[:, 0] - mu[:, 1])
 
 
 def alignment_with(D: np.ndarray, g_ref: np.ndarray, roles: list[str]) -> dict:
@@ -297,74 +212,3 @@ def alignment_with(D: np.ndarray, g_ref: np.ndarray, roles: list[str]) -> dict:
             "norm_ratio": float(np.linalg.norm(D.mean(0)) / np.linalg.norm(g_ref)) if len(D) and np.linalg.norm(g_ref) > 0 else float("nan")}
 
 
-def alignment_null(cells: Cells, g_ref: np.ndarray, n_perm: int, seed: int = 0) -> dict:
-    """Null for mean per-role cos(Delta_r, g_ref) on cells independent of g_ref."""
-    obs = float(np.nanmean([cos(d, g_ref) for d in disp(cells)]))
-    null = permutation_null(cells, n_perm, seed=seed,
-                            stat_fn=lambda D: {"m": float(np.nanmean([cos(d, g_ref) for d in D]))})
-    xs = np.array([d["m"] for d in null])
-    return {"observed": obs, "null_mean": float(xs.mean()), "null_q95": float(np.quantile(xs, 0.95)),
-            "p_greater": float((1 + (xs >= obs).sum()) / (1 + len(xs)))}
-
-
-def split_half_stability(cells: Cells, n_splits: int, seed: int = 0, balance_key: str = "group") -> dict:
-    """Shared direction from two balanced halves of the questions (balanced on `balance_key`,
-    e.g. 10 original + 10 checkable each), roles and prompt variants fixed; cos(g1, g2)."""
-    rng = np.random.default_rng(seed)
-    uq = cells.unit_question()
-    qs = sorted(set(uq))
-    strata: dict[str, list[str]] = {}
-    for q in qs:
-        strata.setdefault(str(cells.qmeta.get(q, {}).get(balance_key, "?")), []).append(q)
-    vals = []
-    for _ in range(n_splits):
-        half = set()
-        for members in strata.values():
-            perm = rng.permutation(len(members))
-            half |= {members[i] for i in perm[: len(members) // 2]}
-        in_half = np.array([q in half for q in uq])
-        g1 = disp(cells.subset_units(in_half)).mean(0)
-        g2 = disp(cells.subset_units(~in_half)).mean(0)
-        vals.append(cos(g1, g2))
-    v = np.array(vals)
-    return {"mean_cos": float(np.nanmean(v)), "min_cos": float(np.nanmin(v)), "sd": float(np.nanstd(v)),
-            "n_splits": n_splits, "strata_sizes": {k: len(m) for k, m in strata.items()}}
-
-
-def family_leave_one_out(cells: Cells) -> dict:
-    """g from the other question families vs displacements on the held-out family."""
-    fam = cells.unit_attr("family")
-    out = {}
-    for f in sorted(set(fam)):
-        inside = fam == f
-        D_in, D_out = disp(cells.subset_units(inside)), disp(cells.subset_units(~inside))
-        g_out = D_out.mean(0)
-        out[f] = {"mean_role_cos_with_g_other": float(np.nanmean([cos(d, g_out) for d in D_in])),
-                  "cos_g_family_g_other": cos(D_in.mean(0), g_out)}
-    return {"families": out, "mean_cos_g_family_g_other": float(np.nanmean([v["cos_g_family_g_other"]
-                                                                              for v in out.values()]))}
-
-
-def crossfit_standardised_effect(cells: Cells, base_index: int = 1) -> dict:
-    """Leave-one-role-out standardised shift: (Delta_r . g_hat_{-r}) / sd_r, where sd_r is the
-    SD of role r's baseline responses along g_hat_{-r}. Cross-fitting keeps the direction
-    independent of the role it is evaluated on; the unit (within-role baseline SD) makes the
-    number comparable across models."""
-    D = disp(cells)
-    effs, projs = [], []
-    for r in range(len(cells.roles)):
-        g = np.delete(D, r, 0).mean(0)
-        gn = np.linalg.norm(g)
-        if gn == 0:
-            continue
-        gh = g / gn
-        n = cells.N[r, base_index]
-        rows = cells.S[r, base_index][n > 0].astype(np.float64)
-        if len(rows) < 3:
-            continue
-        sd = float((rows @ gh).std(ddof=1))
-        e = float(D[r] @ gh)
-        effs.append(e / sd if sd > 0 else np.nan)
-        projs.append(e)
-    return {"mean_d": float(np.nanmean(effs)) if effs else float("nan"), "per_role_d": effs,
-            "mean_proj": float(np.nanmean(projs)) if projs else float("nan")}

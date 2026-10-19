@@ -27,6 +27,7 @@ class TemplateInfo:
     prompt_opens_think: bool           # generation prompt already ends inside <think>
     chat_template_sha256: str
     notes: list[str] = field(default_factory=list)
+    thinking: bool = True              # inspected with enable_thinking (False: no reasoning expected)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -103,6 +104,7 @@ def inspect_template(tokenizer, enable_thinking: bool = True,
     if isinstance(tmpl, dict):
         tmpl = "\n".join(f"{k}:{v}" for k, v in sorted(tmpl.items()))
     return TemplateInfo(
+        thinking=bool(enable_thinking),
         think_open_id=open_id,
         think_close_id=close_id,
         end_ids=sorted(end_ids),
@@ -165,6 +167,10 @@ def split_generation(gen_ids: Sequence[int], tokenizer, info: TemplateInfo) -> S
                 close = i
                 break
     if close is None:
+        if not info.thinking and (info.think_open_id is None or info.think_open_id not in gen_ids[:end]):
+            # thinking OFF (prompt already closed an empty <think></think>): everything is answer
+            answer = _trim_whitespace([i for i in range(0, end) if gen_ids[i] not in special], gen_ids, tokenizer)
+            return Split([], answer, True, len(answer) > 0, n)
         reasoning = [i for i in range(start, end) if gen_ids[i] not in special]
         reasoning = _trim_whitespace(reasoning, gen_ids, tokenizer)
         return Split(reasoning, [], False, False, n)

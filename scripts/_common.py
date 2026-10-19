@@ -31,6 +31,9 @@ def base_parser(desc: str) -> argparse.ArgumentParser:
                    help="technical smoke test: tiny grid, written to outputs_smoke/ (never mixed with real runs)")
     p.add_argument("--worker", type=int, default=0, help="data-parallel worker index (roles are partitioned)")
     p.add_argument("--num-workers", type=int, default=1)
+    p.add_argument("--thinking", choices=["on", "off"], default=None,
+                   help="pilot arms: override generation.enable_thinking (and max_tokens from the pilot block); "
+                        "outputs go to outputs_pilot/thinking_<on|off>/ unless GSHIFT_OUTPUTS is set")
     return p
 
 
@@ -39,6 +42,13 @@ def experiment_for(args) -> dict:
     if getattr(args, "smoke", False):
         exp = smoke_experiment(exp)
         os.environ["GSHIFT_OUTPUTS"] = os.environ.get("GSHIFT_SMOKE_OUTPUTS", str(ROOT / "outputs_smoke"))
+    if getattr(args, "thinking", None):
+        on = args.thinking == "on"
+        exp["generation"]["enable_thinking"] = on
+        mt = exp.get("pilot", {}).get("max_tokens", {})
+        exp["generation"]["max_tokens"] = int(mt.get(on, mt.get(str(on).lower(), exp["generation"]["max_tokens"])))
+        if not getattr(args, "smoke", False):
+            os.environ.setdefault("GSHIFT_OUTPUTS", str(ROOT / "outputs_pilot" / f"thinking_{args.thinking}"))
     return exp
 
 
