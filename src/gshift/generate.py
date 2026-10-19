@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import socket
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -183,7 +184,8 @@ def run_generation(spec: ModelSpec, requests: list[Request], exp: dict[str, Any]
         n_done += len(chunk)
         rows_all = [x for v in by_file.values() for x in v]
         dt = time.time() - t0
-        append_jsonl(model_dir(spec.key) / "run_config" / f"timings_{cid}.jsonl", [{
+        tag = socket.gethostname()                               # one file per pod (sharded runs)
+        append_jsonl(model_dir(spec.key) / "run_config" / f"timings_{cid}_{tag}.jsonl", [{
             "time_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "n_requests": len(chunk),
             "seconds": round(dt, 2), "gen_tokens": n_tok, "prompt_tokens": sum(len(i) for i in pids),
             "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"), "pod_id": os.environ.get("RUNPOD_POD_ID")}])

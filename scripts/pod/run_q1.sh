@@ -8,7 +8,8 @@
 #   rp run gs-q36 --job q1 --env SHUTDOWN=stop -- bash scripts/pod/run_q1.sh qwen3.6-27b
 #   rp logs gs-q36 --job q1 -n 40          # or watch logs/q1/<model>/STATE.md on the HF dataset
 #
-# Knobs (env): SMOKE_ONLY=1 (smoke test, then exit) | SKIP_SMOKE=1 | DOCTOR_ONLY=1 |
+# Knobs (env): SHARD=k SHARDS=m (m pods split the roles; same model, one job per pod) |
+#   SKIP_JUDGE=1 (judge later, e.g. batch from a laptop) | SMOKE_ONLY=1 (smoke test, then exit) | SKIP_SMOKE=1 | DOCTOR_ONLY=1 |
 #   RUN_ANALYSIS=1 (run 04_analyze.py on the GPU pod; default off: it is CPU-only) |
 #   STAGES="main wording_validation followup" | GEN_TP=2 (tensor parallel per generation
 #   worker, e.g. on 80 GB GPUs) | SHUTDOWN=stop|terminate | MAX_HOURS=48 | NGPU=<n>
@@ -23,7 +24,7 @@ MAX_HOURS="${MAX_HOURS:-48}"
 source "$(dirname "$0")/_lib.sh"
 pod_init q1 "$MODEL"
 STAGES="${STAGES:-main wording_validation followup}"
-JUDGE_FLAG=""; judge_ready && JUDGE_FLAG="--judge"
+JUDGE_FLAG=""; [ "${SKIP_JUDGE:-0}" != 1 ] && judge_ready && JUDGE_FLAG="--judge"
 TP_FLAG=""; [ "$GEN_TP" -gt 1 ] && TP_FLAG="--tensor-parallel-size $GEN_TP"
 # Betley et al. published their vector for Qwen3.6-27B only: a hard verification there; for
 # other models the comparison is a cross-model reference, never a pass/fail gate

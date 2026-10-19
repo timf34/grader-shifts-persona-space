@@ -51,6 +51,9 @@ pod_init() {
   [ -n "${TMUX:-}" ] && tm=$(tmux display-message -p '#S' 2>/dev/null)
   JOB="${RP_JOB:-${tm:-${1:?job name}}}"; MODEL="${2:?model key}"
   case "$JOB" in *.*|*:*) echo "!! job names may not contain '.' or ':' (rp run refuses them)"; exit 2 ;; esac
+  # cross-pod sharding: SHARDS pods split the roles; this pod is SHARD (0-based)
+  SHARD="${SHARD:-0}"; SHARDS="${SHARDS:-1}"
+  SHARD_TAG=""; [ "$SHARDS" -gt 1 ] && SHARD_TAG="/shard$SHARD"
   LOGDIR="${LOGDIR:-/workspace/logs/$JOB-$MODEL}"; mkdir -p "$LOGDIR"
   rm -f "$LOGDIR/DONE" "$LOGDIR/FAILED"
   NGPU="${NGPU:-$(nvidia-smi -L 2>/dev/null | wc -l | tr -d ' ')}"
@@ -60,7 +63,7 @@ pod_init() {
   trap 'exit 143' TERM
   trap 'exit 130' INT
   state "storage: /workspace is $WS_FSTYPE -> HF_HOME=$HF_HOME, EasySteer venv under $ES_VENV_ROOT; $(df -h / /workspace 2>/dev/null | awk 'NR>1{printf "%s %s free; ", $6, $4}')"
-  state "job $JOB model $MODEL on pod ${POD_ID:-?}: $NGPU GPU(s), repo $(git rev-parse --short HEAD 2>/dev/null)$(git diff --quiet 2>/dev/null || echo -dirty), SHUTDOWN=${SHUTDOWN:-unset}, MAX_HOURS=${MAX_HOURS:-}"
+  state "job $JOB model $MODEL shard $SHARD/$SHARDS on pod ${POD_ID:-?}: $NGPU GPU(s), repo $(git rev-parse --short HEAD 2>/dev/null)$(git diff --quiet 2>/dev/null || echo -dirty), SHUTDOWN=${SHUTDOWN:-unset}, MAX_HOURS=${MAX_HOURS:-}"
   nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader 2>/dev/null | sort | uniq -c | sed 's/^/    /'
   arm_ceiling
 }
@@ -96,7 +99,7 @@ arm_ceiling() {  # hard stop after MAX_HOURS even if a step hangs (only when SHU
     sleep "$secs"
     state "!! hard ceiling of ${MAX_HOURS} h reached: uploading logs and stopping the pod"
     echo "FAILED ceiling ${MAX_HOURS}h" > "$LOGDIR/FAILED"
-    timeout 600 bash -c "$(declare -f upload_logs sync_logs); PY='$PY' JOB='$JOB' MODEL='$MODEL' LOGDIR='$LOGDIR' upload_logs" || true
+    timeout 600 bash -c "$(declare -f upload_logs sync_logs); PY='$PY' JOB='$JOB' MODEL='$MODEL' LOGDIR='$LOGDIR' SHARD_TAG='$SHARD_TAG' upload_logs" || true
     [ "${SHUTDOWN}" = terminate ] && SHUTDOWN=stop     # keep the disk for inspection
     self_stop
   ) &
@@ -112,7 +115,7 @@ sync_logs() {  # the rp job log next to the step logs
 upload_logs() {
   [ -n "${HF_DATASET_REPO:-}" ] || return 0
   sync_logs
-  $PY -u scripts/upload_hf.py --folder "$LOGDIR" --path-in-repo "logs/$JOB/$MODEL" --message "logs $JOB $MODEL" \
+  $PY -u scripts/upload_hf.py --folder "$LOGDIR" --path-in-repo "logs/$JOB/$MODEL$SHARD_TAG" --message "logs $JOB $MODEL$SHARD_TAG" \
     > "$LOGDIR/upload_logs.out" 2>&1 || { echo "!! log upload failed (see $LOGDIR/upload_logs.out)"; return 1; }
 }
 
@@ -208,12 +211,14 @@ es_py() {  # python of the EasySteer venv, with its bin on PATH (ninja) and the 
 }
 
 fanout() {  # fanout <log-prefix> <tp> <python-runner> <script> [args...]: one worker per TP group of GPUs
+  # (global worker index SHARD x nw + i of SHARDS x nw, so several pods can split one grid)
   local prefix="$1" tp="$2" runner="$3"; shift 3
   local nw=$(( NGPU / tp )); [ "$nw" -ge 1 ] || nw=1
   local pids=() i devs fail=0
   for ((i = 0; i < nw; i++)); do
     devs=$(seq -s, $((i * tp)) $((i * tp + tp - 1)))
-    CUDA_VISIBLE_DEVICES=$devs $runner -u "$@" --worker "$i" --num-workers "$nw" > "$LOGDIR/${prefix}_$i.log" 2>&1 &
+    CUDA_VISIBLE_DEVICES=$devs $runner -u "$@" --worker "$((SHARD * nw + i))" --num-workers "$((SHARDS * nw))" \
+      > "$LOGDIR/${prefix}_$i.log" 2>&1 &
     pids+=($!)
   done
   for p in "${pids[@]}"; do wait "$p" || fail=1; done
