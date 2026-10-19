@@ -73,8 +73,11 @@ def main():
         if not folder.is_dir() or not local_files(folder):
             sys.exit(f"nothing to upload at {folder}")
         prefix = args.path_in_repo.strip("/")
+        # a re-run's DONE / FAILED marker replaces the previous run's (never both on the hub)
+        markers = [m for m in ("DONE", "FAILED") if (folder / m).exists()]
         api.upload_folder(repo_id=args.repo, repo_type="dataset", folder_path=str(folder), path_in_repo=prefix,
-                          commit_message=args.message, ignore_patterns=IGNORE)
+                          commit_message=args.message, ignore_patterns=IGNORE,
+                          delete_patterns=["DONE", "FAILED"] if markers else None)
         verify(api, args.repo, folder, prefix)
     else:
         sub = "comparison" if args.comparison else args.model

@@ -9,6 +9,7 @@
 #   rp logs gs-q36 --job q1 -n 40          # or watch logs/q1/<model>/STATE.md on the HF dataset
 #
 # Knobs (env): SMOKE_ONLY=1 (smoke test, then exit) | SKIP_SMOKE=1 | DOCTOR_ONLY=1 |
+#   RUN_ANALYSIS=1 (run 04_analyze.py on the GPU pod; default off: it is CPU-only) |
 #   STAGES="main wording_validation followup" | GEN_TP=2 (tensor parallel per generation
 #   worker, e.g. on 80 GB GPUs) | SHUTDOWN=stop|terminate | MAX_HOURS=48 | NGPU=<n>
 #
@@ -81,8 +82,15 @@ if [ -n "${JUDGE:-}" ]; then
 fi
 upload "activations + judge scores"
 
-step "Q1 analysis"
-$PY -u scripts/04_analyze.py --model "$MODEL" > "$LOGDIR/analysis.log" 2>&1 || { tail -n 30 "$LOGDIR/analysis.log"; finish 11; }
-grep "^\[analysis\]" "$LOGDIR/analysis.log" | grep " L36:" | head -n 6
-upload "Q1 analysis"
+# The CPU-only analysis (100 roles x 7 layers x 3 representations) would leave every GPU
+# idle for hours: by default the GPU pod stops here and the analysis runs from the HF
+# dataset elsewhere (scripts/download_outputs.py --what all, then scripts/04_analyze.py).
+if [ "${RUN_ANALYSIS:-0}" = 1 ]; then
+  step "Q1 analysis"
+  $PY -u scripts/04_analyze.py --model "$MODEL" > "$LOGDIR/analysis.log" 2>&1 || { tail -n 30 "$LOGDIR/analysis.log"; finish 11; }
+  grep "^\[analysis\]" "$LOGDIR/analysis.log" | grep " L36:" | head -n 6
+  upload "Q1 analysis"
+else
+  state "generation + extraction + judge complete; analysis skipped on the GPU pod (RUN_ANALYSIS=1 to run it here)"
+fi
 finish 0
