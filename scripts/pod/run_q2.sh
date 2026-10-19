@@ -15,7 +15,7 @@ MODEL="${1:?usage: run_q2.sh <model-key>}"
 MAX_HOURS="${MAX_HOURS:-24}"
 # shellcheck source=scripts/pod/_lib.sh
 source "$(dirname "$0")/_lib.sh"
-pod_init "${RP_JOB:-q2}" "$MODEL"
+pod_init q2 "$MODEL"
 SM=""; [ "${SMOKE:-0}" = 1 ] && SM="--smoke"
 q2_upload() { [ -z "$SM" ] && upload "$@"; return 0; }
 

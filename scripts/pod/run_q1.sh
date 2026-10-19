@@ -20,7 +20,7 @@ MODEL="${1:?usage: run_q1.sh <model-key>}"
 MAX_HOURS="${MAX_HOURS:-48}"
 # shellcheck source=scripts/pod/_lib.sh
 source "$(dirname "$0")/_lib.sh"
-pod_init "${RP_JOB:-q1}" "$MODEL"
+pod_init q1 "$MODEL"
 STAGES="${STAGES:-main wording_validation followup}"
 JUDGE_FLAG=""; judge_ready && JUDGE_FLAG="--judge"
 TP_FLAG=""; [ "$GEN_TP" -gt 1 ] && TP_FLAG="--tensor-parallel-size $GEN_TP"

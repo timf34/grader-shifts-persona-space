@@ -45,7 +45,11 @@ state() { echo "$(date -u +%FT%TZ) [$(elapsed)] $*" | tee -a "$LOGDIR/STATE.md";
 step() { echo; state "=== $*"; }
 
 pod_init() {
-  JOB="${1:?job name}"; MODEL="${2:?model key}"
+  # job name = the `rp run --job` name: rp runs the job in a tmux session of that name (it
+  # exports no variable for it); RP_JOB overrides, the script's default is the fallback
+  local tm=""
+  [ -n "${TMUX:-}" ] && tm=$(tmux display-message -p '#S' 2>/dev/null)
+  JOB="${RP_JOB:-${tm:-${1:?job name}}}"; MODEL="${2:?model key}"
   case "$JOB" in *.*|*:*) echo "!! job names may not contain '.' or ':' (rp run refuses them)"; exit 2 ;; esac
   LOGDIR="${LOGDIR:-/workspace/logs/$JOB-$MODEL}"; mkdir -p "$LOGDIR"
   rm -f "$LOGDIR/DONE" "$LOGDIR/FAILED"

@@ -22,7 +22,7 @@ MODEL="${1:?usage: run_pilot.sh <model-key>}"
 MAX_HOURS="${MAX_HOURS:-10}"
 # shellcheck source=scripts/pod/_lib.sh
 source "$(dirname "$0")/_lib.sh"
-pod_init "${RP_JOB:-pilot}" "$MODEL"
+pod_init pilot "$MODEL"
 ARMS="${ARMS:-on off}"
 JUDGE_FLAG=""; judge_ready && JUDGE_FLAG="--judge"
 TP_FLAG=""; [ "$GEN_TP" -gt 1 ] && TP_FLAG="--tensor-parallel-size $GEN_TP"
