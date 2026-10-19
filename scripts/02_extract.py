@@ -45,6 +45,14 @@ def main():
             print("[betley] reproduction exists; reusing")
         else:
             rep = reproduce(model, tok, out, enable_thinking, spec.chat_template_kwargs)
+        if not spec.key.startswith("qwen3.6"):
+            # the published vector is Qwen3.6-27B's: for another model it is a cross-model
+            # reference (expected to differ), not a verification of our conventions
+            rep["comparison_with_qwen3.6_published"] = {k: rep.get(k) for k in (
+                "cos_with_published_at_primary", "norm_ratio_at_primary", "best_offset_by_norm_profile")}
+            rep["verification_passed"] = None
+            rep["verification_note"] = "published vector is Qwen3.6-27B's; not applicable to " + spec.key
+            (out / "report.json").write_text(json.dumps(rep, indent=2, default=str))
         keys = ["cos_with_published_at_primary", "norm_ratio_at_primary", "best_offset_by_norm_profile",
                 "templated_prompt_matches_published", "verification_passed", "comparison"]
         print("[betley] " + json.dumps({k: rep.get(k) for k in keys}), flush=True)

@@ -26,6 +26,9 @@ pod_init pilot "$MODEL"
 ARMS="${ARMS:-on off}"
 JUDGE_FLAG=""; judge_ready && JUDGE_FLAG="--judge"
 TP_FLAG=""; [ "$GEN_TP" -gt 1 ] && TP_FLAG="--tensor-parallel-size $GEN_TP"
+# Betley et al. published their vector for Qwen3.6-27B only: a hard verification there; for
+# other models the comparison is a cross-model reference, never a pass/fail gate
+VERIFY=""; [[ "$MODEL" == qwen3.6* ]] && VERIFY="--require-verification"
 
 step "preflight"
 doctor "$(need_gb)" $JUDGE_FLAG || finish 2
@@ -41,7 +44,8 @@ if [ "${SKIP_SMOKE:-0}" != 1 ]; then
   # shellcheck disable=SC2086
   es_py -u scripts/01_generate.py --model "$MODEL" --smoke --stages main $TP_FLAG > "$LOGDIR/smoke_generate.log" 2>&1 \
     || { tail -n 30 "$LOGDIR/smoke_generate.log"; finish 5; }
-  $PY -u scripts/02_extract.py --model "$MODEL" --smoke --require-verification > "$LOGDIR/smoke_extract.log" 2>&1 \
+  # shellcheck disable=SC2086
+  $PY -u scripts/02_extract.py --model "$MODEL" --smoke $VERIFY > "$LOGDIR/smoke_extract.log" 2>&1 \
     || { tail -n 30 "$LOGDIR/smoke_extract.log"; finish 6; }
   $PY -u scripts/smoke_report.py --model "$MODEL" | tee "$LOGDIR/smoke_report.txt"
   $PY -u scripts/gpu_checks.py spans --model "$MODEL" --smoke | tee "$LOGDIR/smoke_spans.txt"
@@ -66,7 +70,6 @@ for arm in $ARMS; do
   fi
   if [ "$arm" = on ]; then
     step "Betley reproduction + layer/template verification (thinking on)"
-    VERIFY=""; [[ "$MODEL" == qwen3.6* ]] && VERIFY="--require-verification"
     CUDA_VISIBLE_DEVICES=0 $PY -u scripts/02_extract.py --model "$MODEL" --thinking on --betley-only $VERIFY \
       > "$LOGDIR/betley.log" 2>&1 || { tail -n 30 "$LOGDIR/betley.log"; finish 9; }
     grep "^\[betley\]" "$LOGDIR/betley.log" | tail -n 1
