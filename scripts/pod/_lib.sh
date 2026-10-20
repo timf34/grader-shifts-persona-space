@@ -29,7 +29,7 @@ set -a; [ -f .env ] && . ./.env; set +a
 # ES_VENV_ROOT override. rp run presets HF_HOME, so it is SET here, never defaulted.
 WS_FSTYPE=$(findmnt -n -o FSTYPE /workspace 2>/dev/null || stat -f -c %T /workspace 2>/dev/null || echo "?")
 case "$WS_FSTYPE" in
-  *fuse*) _HF_DEFAULT=/hf_cache; export ES_VENV_ROOT="${ES_VENV_ROOT:-/}" ;;
+  *fuse*|*nfs*) _HF_DEFAULT=/hf_cache; export ES_VENV_ROOT="${ES_VENV_ROOT:-/}" ;;
   *)      _HF_DEFAULT=/workspace/hf; export ES_VENV_ROOT="${ES_VENV_ROOT:-/workspace}" ;;
 esac
 export HF_HOME="${GSHIFT_HF_HOME:-$_HF_DEFAULT}"

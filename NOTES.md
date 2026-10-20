@@ -38,6 +38,15 @@ checkout were left alone; main-run files on HF were only read. Pre-registration:
 8. **Frozen directions** were not available tonight (the main analysis hasn't run), so A/B
    projections onto g / persona PCs are deferred, and C/D are code-only, as agreed.
 
+## Incidents tonight (and fixes)
+
+- 01:58–02:03 UTC: no A100/H100 available for ~5 min; the launcher retried every 60 s.
+- 02:03 UTC: first pod (H100, EUR-IS-3, $3.99/h) had a **FUSE `/workspace`**; the runner
+  correctly moved weights + vLLM venv to the 80 GB container disk, then the preflight
+  **refused** (80 GB free < 100 GB needed), wrote FAILED, uploaded logs and stopped the pod
+  (~$0.55). Fix: relaunched with `--disk 160`. Lesson for the runner: on volume-less pods,
+  size `--disk` for weights + venvs whenever `/workspace` may be FUSE.
+
 ## Things I noticed (not acted on)
 
 - When I checked at 01:41 UTC, the other session showed as **idle** while 8 main-run pods

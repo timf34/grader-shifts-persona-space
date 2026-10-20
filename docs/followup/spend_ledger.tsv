@@ -1,1 +1,4 @@
 utc	event	pod	gpu	usd_per_h
+2026-10-20T02:03:29Z	create	gs-fu36	-	$3.99/h
+2026-10-20T02:12:13Z	terminate-preflight-disk	gs-fu36	H100	$3.99/h
+2026-10-20T02:12:40Z	create	gs-fu36b	-	$3.99/h
