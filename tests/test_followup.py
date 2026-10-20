@@ -171,3 +171,45 @@ def test_selfrating_axis_recovers_planted_direction():
     s = {("legit", "base"): np.zeros(30), ("shortcut", "base"): np.zeros(30) - 1,
          ("legit", "graded"): np.zeros(30), ("shortcut", "graded"): np.ones(30)}
     assert context_by_strategy(s)["interaction"] == 2.0
+
+
+def test_a_analysis_end_to_end(tmp_path):
+    """Synthetic cells with a planted context effect (same for every text) and content effect."""
+    import subprocess
+    import sys
+
+    from conftest import ROOT
+
+    rng = np.random.default_rng(0)
+    H, layers = 16, [16, 24, 32, 36, 40, 48, 56]
+    ctx = {c: rng.normal(size=H) for c in ("auto", "human")}
+    content = {c: rng.normal(size=H) for c in ("auto", "human")}
+    d = tmp_path / "qwen3.6-27b"
+    d.mkdir()
+    for role in ("r1", "r2", "r3"):
+        rows, acts = [], []
+        for q in ("q1", "q2"):
+            base = rng.normal(size=H)
+            def add(cond, text, read, v):
+                rows.append({"role": role, "question_id": q, "condition": cond, "text": text, "read": read,
+                             "has_answer": True, "n_reasoning_tokens": 5})
+                acts.append(np.tile(v, (len(layers), 1)))
+            add("baseline", "baseline", "baseline", base)
+            for c in ("auto", "human"):
+                add(c, "baseline", "graded", base + ctx[c])
+                add(c, "graded", "baseline", base + content[c])
+                add(c, "graded", "graded", base + content[c] + ctx[c])
+        A = np.stack(acts).astype(np.float16)
+        np.savez(d / f"cells_{role}.npz", pre=A, resp=A, reason=A, norms=np.zeros((len(rows), 3, len(layers))),
+                 layers=np.array(layers), index=np.array([json.dumps(r) for r in rows]))
+    fz = tmp_path / "frozen"
+    fz.mkdir()
+    np.save(fz / "original_resp_L36_auto_minus_baseline.npy", (ctx["auto"] + content["auto"]).astype(np.float32))
+    subprocess.run([sys.executable, str(ROOT / "scripts" / "followup" / "a_analyze.py"), "--out", str(tmp_path),
+                    "--frozen-dir", str(fz)], check=True, capture_output=True)
+    res = json.loads((d / "analysis_A.json").read_text())
+    r = res["results"]["resp"]["36"]["auto"]
+    assert r["n_roles"] == 3 and r["interaction_over_CE_B"] < 0.01
+    assert r["cos_CE_B_Delta"] == pytest.approx(float(ctx["auto"] @ (ctx["auto"] + content["auto"]) /
+                                                     np.linalg.norm(ctx["auto"]) / np.linalg.norm(ctx["auto"] + content["auto"])), abs=2e-3)
+    assert r["frozen"]["cos_Delta_g"] == pytest.approx(1.0, abs=2e-3)

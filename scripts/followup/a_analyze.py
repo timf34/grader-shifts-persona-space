@@ -30,6 +30,37 @@ def cos(a, b):
     return float(a @ b / (na * nb)) if na > 0 and nb > 0 else float("nan")
 
 
+GROUP_OF = {"auto": "original", "human": "original", "auto_correct": "checkable", "human_correct": "checkable",
+            "auto_quality": "checkable", "human_quality": "checkable", "evaluator_main": "checkable",
+            "criterion_main": "checkable", "betley_matched": "checkable"}
+CONTRAST_OF = {"auto": "auto_minus_baseline", "human": "human_minus_baseline",
+               "auto_correct": "auto_correct_minus_baseline", "human_correct": "human_correct_minus_baseline",
+               "auto_quality": "auto_quality_minus_baseline", "human_quality": "human_quality_minus_baseline",
+               "evaluator_main": "evaluator_main", "criterion_main": "criterion_main", "betley_matched": "betley_matched"}
+
+
+def frozen_projection(vdir: Path, rep: str, L: int, c: str, M: dict) -> dict:
+    """Context / content effects against the FROZEN main-run direction of the same contrast
+    (fitted on discovery roles x discovery questions) and the frozen baseline persona PCs."""
+    g_path = vdir / f"{GROUP_OF[c]}_{rep}_L{L}_{CONTRAST_OF[c]}.npy"
+    pcs_path = vdir / f"{GROUP_OF[c]}_{rep}_L{L}_baseline_pcs.npy"
+    out = {"g_file": g_path.name}
+    if not g_path.exists():
+        return {"skipped": f"{g_path.name} not found"}
+    g = np.load(g_path).astype(np.float64)
+    for k in ("CE_B", "CE_G", "TE_c", "TE_base", "Delta"):
+        out[f"cos_{k}_g"] = cos(M[k], g)
+        out[f"{k}_along_g_over_g"] = float(M[k] @ g / (g @ g)) if g @ g > 0 else None
+    if pcs_path.exists():
+        V = np.load(pcs_path).astype(np.float64)
+        for k in ("CE_B", "TE_c"):
+            v = M[k]
+            for r in (1, 5, 20):
+                rr = min(r, len(V))
+                out[f"{k}_captured_by_top{r}_pcs"] = float(((V[:rr] @ v) ** 2).sum() / (v @ v)) if v @ v > 0 else None
+    return out
+
+
 def load(d: Path):
     cells = []
     for f in sorted(d.glob("cells_*.npz")):
@@ -37,7 +68,7 @@ def load(d: Path):
         idx = [json.loads(s) for s in z["index"]]
         for k, row in enumerate(idx):
             cells.append((row, {rep: z[rep][k].astype(np.float64) for rep in ("pre", "resp", "reason")}))
-        layers = list(z["layers"])
+        layers = [int(x) for x in z["layers"]]
     return cells, layers
 
 
@@ -113,7 +144,7 @@ def main():
                 loo = [cos(X[i], np.delete(X, i, 0).mean(0)) for i in range(len(X))] if len(X) > 2 else []
                 row["CE_B_mean_loo_cos_across_roles"] = float(np.nanmean(loo)) if loo else None
                 if args.frozen_dir:
-                    row["frozen"] = "projection onto frozen directions: implemented after the main analysis exists"
+                    row["frozen"] = frozen_projection(Path(args.frozen_dir), rep, L, c, M)
                 out[c] = row
             res["results"][rep][str(L)] = out
     (d / "analysis_A.json").write_text(json.dumps(res, indent=1))
