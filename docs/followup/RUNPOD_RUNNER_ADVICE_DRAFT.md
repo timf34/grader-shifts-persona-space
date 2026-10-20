@@ -55,19 +55,28 @@ Two things to decide first:
     (grader-shifts-persona-space/scripts/pod/_lib.sh; worked as designed on 2026-10-20.)
 14. Upload after every step, verify the remote file list, ship logs with results (EC#27, #31),
     create result datasets public (EC#18), give smoke/follow-up runs their own prefixes (EC#25).
-15. Uploads only add files: a re-run's DONE/FAILED marker must replace the old one
+15. **Pod-side self-stop needs the network.** 2026-10-20: a pod lost DNS and then its public
+    IP mid-job. Its upload, REST stop *and* MAX_HOURS ceiling all failed, and RunPod still
+    showed it RUNNING and billing. So the agent's local watcher must also check reachability
+    and stop the pod itself via REST (`POST /v1/pods/{id}/stop`) after a few failed polls.
+    Upload checkpoints during long steps (every ~10 min), not only at step ends.
+16. Stopped pods without a network volume may never restart ("not enough free GPUs on the
+    host"; `podResume` with `gpuCount: 0` is refused too). Treat a stop as possibly losing
+    access to the disk: upload before stopping, and never leave results only on the pod.
+17. Uploads only add files: a re-run's DONE/FAILED marker must replace the old one
     (`delete_patterns`), or a stale FAILED sits next to a new DONE.
 
 ## Monitoring
-16. Poll the artefact store (STATE.md / DONE / FAILED on HF), not a pod that stops itself (EC#23).
-17. macOS: the agent's background monitors stop if the laptop sleeps; run `caffeinate -i` for
+18. Poll the artefact store (STATE.md / DONE / FAILED on HF), not a pod that stops itself (EC#23).
+19. macOS: the agent's background monitors stop if the laptop sleeps; run `caffeinate -i` for
     overnight work. Pod-side ceilings still bound cost if the laptop dies.
-18. Retries must change something (AssistantAxisWithEmergentMisalignment/exp/STATE.md).
+20. Retries must change something (AssistantAxisWithEmergentMisalignment/exp/STATE.md).
 
 ## Candidate `rp` changes
 - `rp up --ip-timeout SECS --on-timeout terminate` (auto-delete pods that never get a network).
 - GPU fallback across aliases with retry on "no instances available".
 - `rp run` exports `RUNPOD_POD_ID` and the job name (`RP_JOB`) into the job script.
 - `rp run --self-stop stop|terminate --max-hours H` built in (six repos reimplement it).
+- `rp watch NAME --stop-if-unreachable MIN`: a laptop-side backstop for pods that lose network.
 - `rp up`/`bootstrap` print `findmnt /workspace` + `df`, warn on FUSE with a small `--disk`.
 - `rp bootstrap --venv-dir /venv` (container-disk venv) and a `vllm-0.26-cu129` profile.
