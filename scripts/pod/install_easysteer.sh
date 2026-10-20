@@ -86,7 +86,8 @@ fi
 (cd "$ES_DIR" && { git checkout -q "$ES_REF" 2>/dev/null || { git fetch -q origin && git checkout -q "$ES_REF"; }; })
 echo "EasySteer overlay at $(cd "$ES_DIR" && git log -1 --format='%h %cd')"
 VLLM_DIR=$("$ES_VENV/bin/python" -c "import importlib.util, os; print(os.path.dirname(importlib.util.find_spec('vllm').origin))")
-cp -a "$ES_DIR/vllm/." "$VLLM_DIR/"
+# plain recursive copy: network filesystems (e.g. nfs4 /workspace) refuse to preserve ownership (cp -a)
+cp -rf "$ES_DIR/vllm/." "$VLLM_DIR/"
 [ -f "$VLLM_DIR/steer_vectors/algorithms/direct.py" ] || { echo "!! overlay layout not recognised under $VLLM_DIR"; exit 1; }
 
 # self-test with exactly the environment generation will use: venv bin on PATH (vLLM

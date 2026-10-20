@@ -22,15 +22,15 @@ set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT" || exit 1
 set -a; [ -f .env ] && . ./.env; set +a
-# Storage: without a network volume /workspace can be a FUSE network mount (pip took ~70 min
+# Storage: without a network volume /workspace can be a FUSE or NFS network mount (pip took ~70 min
 # for a 12 GB venv there: emotion-concepts ISSUES_LOG #10). Then the weights cache and the
 # EasySteer venv go on the container disk (fast; wiped on stop, so a restarted pod
 # re-downloads); results, logs and the rp venv stay on /workspace. GSHIFT_HF_HOME /
 # ES_VENV_ROOT override. rp run presets HF_HOME, so it is SET here, never defaulted.
 WS_FSTYPE=$(findmnt -n -o FSTYPE /workspace 2>/dev/null || stat -f -c %T /workspace 2>/dev/null || echo "?")
-case "$WS_FSTYPE" in
-  *fuse*) _HF_DEFAULT=/hf_cache; export ES_VENV_ROOT="${ES_VENV_ROOT:-/}" ;;
-  *)      _HF_DEFAULT=/workspace/hf; export ES_VENV_ROOT="${ES_VENV_ROOT:-/workspace}" ;;
+case "$WS_FSTYPE" in   # local block filesystems keep everything on /workspace; anything else
+  xfs|ext4|ext3|btrfs|overlay|zfs) _HF_DEFAULT=/workspace/hf; export ES_VENV_ROOT="${ES_VENV_ROOT:-/workspace}" ;;
+  *) _HF_DEFAULT=/hf_cache; export ES_VENV_ROOT="${ES_VENV_ROOT:-/}" ;;   # fuse, nfs4, ceph, ...: container disk
 esac
 export HF_HOME="${GSHIFT_HF_HOME:-$_HF_DEFAULT}"
 export HF_HUB_ENABLE_HF_TRANSFER=1 HF_XET_HIGH_PERFORMANCE=1 PYTHONUNBUFFERED=1
