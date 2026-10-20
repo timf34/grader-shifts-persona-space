@@ -32,7 +32,7 @@ from huggingface_hub import HfApi  # noqa: E402
 
 from gshift.io import outputs_root  # noqa: E402
 
-IGNORE = ["*.tmp", "**/*.tmp", "**/__pycache__/**", "**/_hf_cache/**"]   # _hf_cache: read-only copies of main-run records
+IGNORE = ["*.tmp", "**/*.tmp", "**/__pycache__/**", "_hf_cache/**", "**/_hf_cache/**"]   # _hf_cache: read-only copies of main-run records
 
 
 def local_files(folder: Path) -> set[str]:

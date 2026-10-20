@@ -6,7 +6,47 @@ checkout were left alone; main-run files on HF were only read. Pre-registration:
 `docs/followup/PREREG_AB.md` (commit 8d42fa3, before any A/B data). Spend ledger:
 `docs/followup/spend_ledger.tsv`.
 
-## Morning summary (B final; A see below)
+## Morning summary
+
+Both first-pass stages ran on Qwen3.6, and both say the same thing. **Telling the model it
+will be graded (especially "automatically") mainly changes *what it writes*: shorter,
+code-only answers. That text change is what moves the activations. Neither the shortcut
+behaviour nor the context-at-fixed-text representation moves much.** Qwen3.8, live
+transplants, C and D were deferred as agreed; the D gate is not met.
+
+**Spend: ≈ $8.5 of the $40 cap.** GPU ≈ $7.8: gs-fu36 $0.58, gs-fu36b $1.21, gs-fu36c
+$3.19, gs-fu36d $2.82 (ledger: `docs/followup/spend_ledger.tsv`). Judge ≈ $0.5
+(gpt-4.1-mini, ~400 short calls across scoring passes). Plus a few cents per hour for the
+stopped gs-fu36c volume until you delete it.
+
+**A: cross-reading (17 discovery roles × 20 questions × prompt variant 0, all 4 cells per
+graded condition; descriptive, discovery only).** Results: `followup/A/qwen3.6-27b`
+(`analysis_A.json`, 17 `cells_<role>.npz`, `ingest_manifest.json` with main-run file hashes).
+- Δ (graded − baseline, own context) decomposes as CE_B + TE_c (context effect at fixed
+  baseline text + text effect read in the graded context). On the model's own **response**
+  tokens, the share of Δ along CE_B is 1-11% for the automatic contrasts and 6-21% for the
+  human ones. The automatic contrasts have by far the largest |Δ| (auto_correct
+  |Δ|/‖act‖ 0.20 at L36 vs 0.03 for human_quality). On **reasoning** tokens the share is
+  3-33%, growing with depth. cos(TE_c, Δ) is 0.95-1.00 throughout.
+- CE_B is small but **consistent across roles** (leave-one-role-out cosine 0.76-0.97), so
+  there is a stable, low-magnitude "being graded" direction at fixed text.
+- `pre` (last prompt token) is trivially 100% context and is included only for completeness.
+- Implication for the main analysis: Δ-based graded-persona directions mostly encode the
+  output-style change. For the representation of the grading context itself, use
+  cross-read CE_B directions (or condition on text). Frozen-direction projections are
+  still pending, since the main analysis hasn't published them.
+- Role shortfall (pre-registered, not filled): analytical_helping 3/4, creative 2/4. Only
+  discovery roles were used; no held-out data touched.
+
+**Housekeeping for you:**
+1. Delete the stopped pod gs-fu36c (`rp down gs-fu36c --terminate`).
+2. My A upload accidentally included `followup/A/qwen3.6-27b/_hf_cache/` (~0.7 GB copy
+   of main-run response files) in the HF dataset; my ignore pattern missed top-level
+   folders (now fixed). It's harmless duplication; delete that folder when convenient. I
+   didn't delete anything from the dataset unasked.
+3. Review `docs/followup/RUNPOD_RUNNER_ADVICE_DRAFT.md` before it goes into runpod-runner.
+
+### B details
 
 **B: shortcut panel (Qwen3.6, default persona, 40 MBPP+ tasks × 6 conditions × 3 seeds = 720).**
 Results: `followup/B/qwen3.6-27b` on HF (`analysis_*.json`, `disclosure_*.json`).
