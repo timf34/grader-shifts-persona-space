@@ -172,6 +172,10 @@ prose to say. Pre-registered as H2/H3 before reading validation.
 
 ## Things I noticed (not acted on)
 
+- At 05:00 UTC the other session had 5 main-run pods RUNNING (gs-main36-s0d, -s1d, -s2b,
+  gs-main38-s3b at $5.29/h; gs-main38-s0 at $1.79/h, up since 19:51 UTC yesterday), ≈ $23/h
+  in total. Untouched; worth checking they're all doing work.
+
 - When I checked at 01:41 UTC, the other session showed as **idle** while 8 main-run pods
   were running (≈ $36/h), some shards having both an old and a replacement pod. I did not
   touch them; worth a look in the morning.
