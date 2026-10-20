@@ -12,6 +12,7 @@ import json
 import os
 import sys
 import time
+import traceback
 from pathlib import Path
 
 import numpy as np
@@ -86,31 +87,46 @@ def main():
     model, tok = load_hf_model(spec, exp["extraction"].get("dtype", "bfloat16"))
     render = lambda msgs: prompt_token_ids(tok, msgs, True, spec.chat_template_kwargs)  # noqa: E731
     ex = Extractor(model, tok, exp["extraction"]["layer_sweep"], True, spec.chat_template_kwargs)
-    problems = {}
+    problems, failed = {}, {}
     for role in roles:
         dest = out / f"cells_{role}.npz"
         if dest.exists():
             print(f"[A] {role}: done, skipping")
             continue
-        jobs, probs = plan_cells(exp, role, recs[role], render)
-        problems[role] = probs
-        t0 = time.time()
-        arrs = {k: [] for k in ("pre", "resp", "reason")}
-        norms, index = [], []
-        for j in jobs:
-            r = ex.record({"prompt_ids": j["prompt_ids"], "gen_ids": j["gen_ids"]})
-            for k in arrs:
-                arrs[k].append(r["acts"][k].astype(np.float16))
-            norms.append(r["norms"])
-            sp = r["split"]
-            index.append({k: v for k, v in j.items() if k not in ("prompt_ids", "gen_ids")} | {
-                "n_prompt": len(j["prompt_ids"]), "n_answer_tokens": len(sp.answer),
-                "n_reasoning_tokens": len(sp.reasoning), "has_answer_split": sp.has_answer})
-        np.savez(dest, **{k: np.stack(v) for k, v in arrs.items()}, norms=np.stack(norms),
-                 layers=np.array(ex.layers), index=np.array([json.dumps(x) for x in index]))
-        print(f"[A] {role}: {len(jobs)} cells in {time.time() - t0:.0f}s ({len(probs)} problems)", flush=True)
+        try:   # one bad role must not cost the others
+            problems[role] = extract_role(exp, role, recs[role], render, ex, dest)
+        except Exception as e:  # noqa: BLE001
+            failed[role] = f"{type(e).__name__}: {e}"
+            print(f"[A] {role}: FAILED {failed[role]}", flush=True)
+            traceback.print_exc()
+    man["failed_roles"] = failed
     man["plan_problems"] = problems
     (out / "ingest_manifest.json").write_text(json.dumps(man, indent=1))
+    if failed:
+        sys.exit(f"[A] {len(failed)} role(s) failed: {sorted(failed)}")
+
+
+def extract_role(exp, role, records, render, ex, dest) -> list:
+    jobs, probs = plan_cells(exp, role, records, render)
+    t0 = time.time()
+    arrs = {k: [] for k in ("pre", "resp", "reason")}
+    norms, index = [], []
+    for j in jobs:
+        r = ex.record({"prompt_ids": j["prompt_ids"], "gen_ids": j["gen_ids"]})
+        for k in arrs:
+            arrs[k].append(r["acts"][k].astype(np.float16))
+        norms.append(r["norms"])
+        sp = r["split"]
+        index.append({k: v for k, v in j.items() if k not in ("prompt_ids", "gen_ids")} | {
+            "n_prompt": len(j["prompt_ids"]), "n_answer_tokens": len(sp.answer),
+            "n_reasoning_tokens": len(sp.reasoning), "has_answer_split": sp.has_answer})
+    tmp = dest.parent / (dest.name + ".tmp")   # atomic: a crash never leaves a partial cells file
+    with open(tmp, "wb") as fh:
+        np.savez(fh, **{k: np.stack(v) for k, v in arrs.items()}, norms=np.stack(norms),
+                 layers=np.array(ex.layers), index=np.array([json.dumps(x) for x in index]))
+    tmp.replace(dest)
+    print(f"[A] {role}: {len(jobs)} cells in {time.time() - t0:.0f}s ({len(probs)} problems)", flush=True)
+    return probs
 
 
 if __name__ == "__main__":

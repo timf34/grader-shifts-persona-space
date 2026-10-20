@@ -17,6 +17,39 @@ pod_init followup "$MODEL"
 OUT=followup_out
 up() { upload "$1" --folder "$OUT/$2/$MODEL" --path-in-repo "followup/$2/$MODEL"; }
 
+# STAGES=A: A only (re-run after a pod failure; B results already exist)
+STAGES="${STAGES:-AB}"
+checkpoint_A() {  # background: upload A cells every 10 min (failures here do not block termination)
+  while sleep 600; do
+    $PY -u scripts/upload_hf.py --message "A cells (checkpoint)" --folder "$OUT/A/$MODEL" \
+      --path-in-repo "followup/A/$MODEL" >> "$LOGDIR/upload_checkpoint.log" 2>&1 \
+      && state "checkpoint upload: A ($(ls "$OUT/A/$MODEL" | grep -c '^cells_') roles)" \
+      || state "(checkpoint upload failed; will retry)"
+  done
+}
+
+if [ "$STAGES" = A ]; then
+  step "preflight (A only)"
+  doctor "$(need_gb)" || finish 2
+  step "weights download"
+  start_download
+  wait_download
+  step "A cross-reading (GPU) with checkpoint uploads"
+  checkpoint_A & CK=$!
+  $PY -u scripts/followup/a_crossread.py --model "$MODEL" --out "$OUT/A" > "$LOGDIR/a_crossread.log" 2>&1
+  A_RC=$?
+  kill "$CK" 2>/dev/null
+  grep "^\[A\]" "$LOGDIR/a_crossread.log" | tail -n 30
+  [ $A_RC = 0 ] || { state "!! A cross-reading failed (see a_crossread.log)"; tail -n 30 "$LOGDIR/a_crossread.log"; }
+  up "A cells" A
+  if [ $A_RC = 0 ]; then
+    step "A analysis"
+    $PY scripts/followup/a_analyze.py --model "$MODEL" --out "$OUT/A" | tee "$LOGDIR/a_analysis.txt"
+    up "A cells + analysis" A
+  fi
+  finish $([ $A_RC = 0 ] && echo 0 || echo 9)
+fi
+
 step "preflight"
 doctor "$(need_gb)" --judge || finish 2
 
