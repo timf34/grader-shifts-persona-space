@@ -55,6 +55,7 @@ def run_activation_check(model, tokenizer, spec, prompts, manifest: dict, vector
                 st = np.stack([ex.prompt_last(i) for i in ids]).astype(np.float64)
             delta = (st - base).mean(0)
             res = {"injected_check_cos": cos(delta[layers.index(L)], sign * vectors[d])}
+            res["convergence"] = steering_convergence(spec.key, prompts, base, st, layers, downstream)
             for Lx in downstream:
                 if nat_pre[Lx] is not None:
                     res[f"cos_natural_L{Lx}"] = cos(delta[layers.index(Lx)], nat_pre[Lx])
@@ -63,6 +64,54 @@ def run_activation_check(model, tokenizer, spec, prompts, manifest: dict, vector
             out["pre"][f"{d}_{'+' if sign > 0 else '-'}"] = res
     if gen_dir is not None and gen_dir.exists():
         out["resp"] = _response_check(ex, model, spec, gen_dir, manifest, vectors, strength, layers, downstream)
+    return out
+
+
+def steering_convergence(model_key: str, prompts, base: np.ndarray, st: np.ndarray, layers: list[int],
+                         downstream: list[int], k: int = 10) -> dict[str, Any]:
+    """Does a CONSTANT vector injected at L make personas converge further downstream?
+
+    At L the injected vector moves every persona equally (separation ratio 1, slope 0 by
+    construction). At each downstream layer and question group: separation ratio = rms spread
+    of the role means with steering / without; beta = one isotropic OLS slope of each role's
+    displacement on its unsteered position in the group's top-k baseline persona PCs at that
+    layer (analysis/vectors/<group>_pre_L<Lx>_baseline_pcs.npy), cross-fitted over two halves
+    of the questions (position from one half, displacement from the other, both ways).
+    Negative beta / ratio < 1 = the network itself pulls personas together."""
+    if not prompts or not all("role" in p.meta and "question_id" in p.meta for p in prompts):
+        return {}
+    roles = np.array([p.meta["role"] for p in prompts])
+    groups = np.array([p.meta.get("group") or ("checkable" if str(p.meta["question_id"]).startswith("chk_") else "original")
+                       for p in prompts])
+    qids = np.array([str(p.meta["question_id"]) for p in prompts])
+    vdir = model_dir(model_key) / "analysis" / "vectors"
+    out: dict[str, Any] = {}
+    for Lx in downstream:
+        li = layers.index(Lx)
+        for g in ("original", "checkable"):
+            pcs_p = vdir / f"{g}_pre_L{Lx}_baseline_pcs.npy"
+            sel_g = groups == g
+            if not sel_g.any() or not pcs_p.exists():
+                continue
+            V = np.load(pcs_p).astype(np.float64)[:k]
+            uq = sorted(set(qids[sel_g]))
+            halves = [set(uq[0::2]), set(uq[1::2])]
+            rr = sorted(set(roles[sel_g]))
+
+            def means(A, half):
+                return np.stack([A[sel_g & (roles == r) & np.isin(qids, list(half)), li].mean(0) for r in rr])
+
+            Xb = means(base, set(uq))
+            Xs = means(st, set(uq))
+            spread = lambda X: float(np.sqrt(((X - X.mean(0)) ** 2).sum(1).mean()))  # noqa: E731
+            betas = []
+            for h1, h2 in ((0, 1), (1, 0)):
+                x = means(base, halves[h1]) @ V.T
+                dlt = (means(st, halves[h2]) - means(base, halves[h2])) @ V.T
+                xc, dc = x - x.mean(0), dlt - dlt.mean(0)
+                betas.append(float((xc * dc).sum() / (xc * xc).sum()))
+            out[f"{g}_L{Lx}"] = {"n_roles": len(rr), "separation_ratio": spread(Xs) / spread(Xb),
+                                 "beta_crossfit": float(np.mean(betas))}
     return out
 
 

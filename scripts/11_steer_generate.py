@@ -23,7 +23,7 @@ from gshift.config import get_model, load_yaml
 from gshift.generate import load_tokenizer
 from gshift.io import write_json
 from gshift.steer.calibrate import calib_metrics, choose_strength, load_calibration_rows
-from gshift.steer.engine import SteerClient, condition_name, generate_condition, sanity_check
+from gshift.steer.engine import SteerClient, condition_name, generate_condition, parse_condition, sanity_check
 from gshift.steer.tasks import benchmark_prompts, calibration_prompts, natural_prefix
 from gshift.steer.vectors import gguf_paths, load_steering_set, steering_dir
 
@@ -45,6 +45,39 @@ def eval_conditions(cfg: dict, man: dict, strengths: list[float]) -> list[str]:
     return conds
 
 
+def benchmark_conditions(cfg: dict, man: dict, strengths: list[float], bench: str) -> list[str]:
+    """eval_conditions narrowed by the benchmark's optional filters (configs/steering_stage_a.yaml):
+    directions, signs, strengths, natural (natural_* conditions), random."""
+    b = cfg["evaluation"]["benchmarks"][bench] or {}
+    keep_dirs = set(b.get("directions", cfg["evaluation"]["steered_directions"]))
+    signs = set(b.get("signs", [1, -1]))
+    strs = set(b.get("strengths", strengths))
+    out = []
+    for c in eval_conditions(cfg, man, strengths):
+        if c == "none":
+            out.append(c)
+            continue
+        if c.startswith("natural_"):
+            if b.get("natural", True):
+                out.append(c)
+            continue
+        d, signed = parse_condition(c)
+        if (1 if signed >= 0 else -1) not in signs:
+            continue
+        kind = man["directions"][d]["kind"]
+        if kind == "random":
+            if b.get("random", True):
+                out.append(c)
+        elif kind == "projection" or (d in keep_dirs and abs(signed) in strs):
+            out.append(c)
+    return out
+
+
+def shard_of(cond: str, all_conds: list[str], shards: int) -> int:
+    """Whole conditions go to one shard (round-robin over the plan's condition order)."""
+    return all_conds.index(cond) % shards
+
+
 def main():
     p = base_parser(__doc__)
     p.add_argument("--steering-config", default=str(ROOT / "configs" / "steering.yaml"))
@@ -54,6 +87,9 @@ def main():
     p.add_argument("--limit", type=int, default=None, help="prompts per benchmark (smoke)")
     p.add_argument("--base-url", default="http://localhost:8000/v1")
     p.add_argument("--concurrency", type=int, default=128)
+    p.add_argument("--shard", type=int, default=0, help="this pod's shard (conditions split round-robin)")
+    p.add_argument("--shards", type=int, default=1)
+    p.add_argument("--parallel-conditions", type=int, default=3, help="conditions generated concurrently")
     args = p.parse_args()
     exp = experiment_for(args)
     cfg = load_yaml(args.steering_config)
@@ -77,7 +113,8 @@ def main():
         if not res["ok"]:
             sys.exit("EasySteer sanity check failed: steering is not being applied as expected")
 
-    if args.phase in ("calibrate", "all"):
+    fixed = cfg["evaluation"].get("strengths")
+    if args.phase in ("calibrate", "all") and not (fixed or args.strengths):
         prompts = calibration_prompts(cfg, exp)
         prompts = prompts[: args.limit] + prompts[-args.limit:] if args.limit else prompts
         out = sd / "calibration_generations.jsonl"
@@ -92,22 +129,48 @@ def main():
         print("[calibrate]", json.dumps(choice), flush=True)
 
     if args.phase in ("eval", "all"):
-        strengths = args.strengths or json.loads((sd / "calibration.json").read_text())["eval_strengths"]
+        strengths = args.strengths or fixed or json.loads((sd / "calibration.json").read_text())["eval_strengths"]
         conds = eval_conditions(cfg, man, strengths)
-        write_json(sd / "eval_plan.json", {"strengths": strengths, "conditions": conds})
-        ac = cfg["activation_check"]
-        s_star = max(strengths)
-        persona_dirs = list(ac["directions"]) + [f"random{k}" for k in range(int(ac.get("n_random", 0)))]
-        persona_conds = {"none"} | {condition_name(d, sg * s_star) for d in persona_dirs for sg in (1, -1)}
-        for b in args.benchmarks or list(cfg["evaluation"]["benchmarks"]):
-            for c in sorted(persona_conds & (set(conds) | {"none"})) if b == "persona" else conds:
-                if b == "persona" and c.startswith("natural_"):
-                    continue
-                prompts = benchmark_prompts(b, cfg, exp, natural_prefix(c, exp))
+        benches = args.benchmarks or list(cfg["evaluation"]["benchmarks"])
+        plan = {b: [c for c in benchmark_conditions(cfg, man, strengths, b) if shard_of(c, conds, args.shards) == args.shard]
+                for b in benches if b != "persona"}
+        write_json(sd / f"eval_plan_shard{args.shard}of{args.shards}.json",
+                   {"strengths": strengths, "conditions": conds, "shard": args.shard, "shards": args.shards, "plan": plan})
+        print(f"[eval] shard {args.shard}/{args.shards}: " + ", ".join(f"{b} {len(c)}" for b, c in plan.items()), flush=True)
+        jobs = [(b, c) for b, bconds in plan.items() for c in bconds]
+        import threading
+
+        local = threading.local()
+
+        def run_job(job):
+            # one client per worker thread (an async client is bound to its event loop); several
+            # conditions in flight keep the server's queue full through each batch's long tail
+            b, c = job
+            prompts = benchmark_prompts(b, cfg, exp, natural_prefix(c, exp))
+            if args.limit:
+                prompts = prompts[: args.limit]
+            if not hasattr(local, "tok"):    # fast tokenizers are not safe to share across threads
+                local.tok = load_tokenizer(spec)
+            wc = SteerClient(args.base_url, spec.key, max(1, args.concurrency // args.parallel_conditions))
+            bgen = dict(gen)
+            if (cfg["evaluation"]["benchmarks"].get(b) or {}).get("max_tokens") and not args.smoke:
+                bgen["max_tokens"] = int(cfg["evaluation"]["benchmarks"][b]["max_tokens"])   # e.g. agentic
+            return generate_condition(wc, local.tok, spec, prompts, c, paths, man, bgen, sd / "gen" / b / f"{c}.jsonl")
+
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(max_workers=args.parallel_conditions) as pool:
+            for _ in pool.map(run_job, jobs):
+                pass
+        if "persona" in benches and args.shard == 0:
+            ac = cfg["activation_check"]
+            s_star = max(strengths)
+            persona_dirs = list(ac["directions"]) + [f"random{k}" for k in range(int(ac.get("n_random", 0)))]
+            for c in sorted({"none"} | {condition_name(d, sg * s_star) for d in persona_dirs for sg in (1, -1)}):
+                prompts = benchmark_prompts("persona", cfg, exp)
                 if args.limit:
                     prompts = prompts[: args.limit]
-                generate_condition(client, tok, spec, prompts, c, paths, man, gen, sd / "gen" / b / f"{c}.jsonl")
-
+                generate_condition(client, tok, spec, prompts, c, paths, man, gen, sd / "gen" / "persona" / f"{c}.jsonl")
 
 if __name__ == "__main__":
     main()

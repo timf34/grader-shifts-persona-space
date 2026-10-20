@@ -30,7 +30,8 @@ read -r HF REV MAXLEN <<<"$("$ES_VENV/bin/python" - "$MODEL_KEY" "$REPO" <<'PY'
 import sys, yaml
 key, repo = sys.argv[1], sys.argv[2]
 m = yaml.safe_load(open(f"{repo}/configs/models.yaml"))["models"][key]
-s = yaml.safe_load(open(f"{repo}/configs/steering.yaml"))["generation"]
+import os
+s = yaml.safe_load(open(os.environ.get("STEERING_CONFIG") or f"{repo}/configs/steering.yaml"))["generation"]
 print(m["hf_id"], m["revision"], s["max_model_len"])
 PY
 )"

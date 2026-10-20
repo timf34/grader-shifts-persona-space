@@ -1,0 +1,197 @@
+<title>Qwen3.8 Grading Shifts</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: one reading column (~68ch) for prose; figures break out wider on a paper-coloured plate that matches the matplotlib surface. */
+:root {
+  --paper: #fcfcfb;      /* figure surface, also the light page */
+  --bg: #f6f6f4;
+  --ink: #17181a;
+  --muted: #5b5e64;
+  --rule: #dfe0e3;
+  --accent: #2a78d6;     /* series-1 blue from the figures */
+  --chip: #eceef2;
+  --f-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131417; --ink: #e7e8eb; --muted: #a2a6ae; --rule: #2c2e33; --accent: #6ea8f0; --chip: #22242a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #131417; --ink: #e7e8eb; --muted: #a2a6ae; --rule: #2c2e33; --accent: #6ea8f0; --chip: #22242a;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.6; }
+.page { max-width: 1120px; margin: 0 auto; padding-block: 48px 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.col { max-width: 68ch; margin: 0 auto; }
+header { display: grid; gap: 10px; margin-bottom: 40px; }
+.eyebrow { font-family: var(--f-data); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--f-display); font-weight: 600; font-size: clamp(30px, 5vw, 44px); line-height: 1.1; margin: 0; text-wrap: balance; }
+.dek { color: var(--muted); margin: 0; font-size: 17px; }
+h2 { font-family: var(--f-display); font-weight: 600; font-size: 25px; line-height: 1.2; margin: 0; text-wrap: balance; }
+h3 { font-family: var(--f-display); font-weight: 600; font-size: 19px; margin: 0; }
+p { margin: 0; }
+.findings { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; counter-reset: f; }
+.findings li { display: grid; grid-template-columns: 2.2em 1fr; gap: 4px; counter-increment: f; }
+.findings li::before { content: counter(f); font-family: var(--f-data); color: var(--accent); font-weight: 500; }
+.findings b { font-weight: 600; }
+section.result { display: grid; gap: 18px; padding-block: 44px; border-top: 1px solid var(--rule); }
+.result .col { display: grid; gap: 14px; min-width: 0; }
+.qnum { font-family: var(--f-data); font-size: 12px; color: var(--muted); letter-spacing: .06em; }
+figure { margin: 0; background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; padding: 12px; overflow-x: auto; }
+figure img { display: block; width: 100%; height: auto; min-width: 640px; }
+figure.narrow { max-width: 760px; margin: 0 auto; }
+figure.narrow img { min-width: 0; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px; }
+.stat { background: var(--chip); border-radius: 4px; padding: 6px 10px; display: grid; gap: 0; min-width: 0; }
+.stat .v { font-family: var(--f-data); font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.stat .k { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
+.note { font-size: 14px; color: var(--muted); }
+.setup { display: grid; gap: 14px; padding-block: 44px; border-top: 1px solid var(--rule); }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; font-size: 15px; }
+dt { color: var(--muted); }
+dd { margin: 0; min-width: 0; }
+code, .mono { font-family: var(--f-data); font-size: .9em; }
+ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 560px) {
+  dl { grid-template-columns: 1fr; gap: 2px; }
+  dd { margin-bottom: 8px; }
+  figure img { min-width: 560px; }
+}
+</style>
+
+<div class="page">
+  <header class="col">
+    <div class="eyebrow">Q1 · Qwen3.8-27B · thinking mode · layer 36</div>
+    <h1>How grading context shifts Qwen3.8's personas</h1>
+    <p class="dek">We told 100 role-played personas their answer would be graded, automatically or by a human, and measured how their activations moved relative to an ungraded baseline. 138,420 generations, judged for role adherence by gpt-4.1-mini.</p>
+  </header>
+
+  <div class="col" style="display:grid;gap:16px;margin-bottom:8px">
+    <h2>In short</h2>
+    <ol class="findings">
+      <li><span><b>The shift is shared across personas.</b> Each persona's graded − baseline shift points the same way as the other personas' mean shift (cosine 0.91–0.96 at the prompt token; the null 95th percentile is 0.13).</span></li>
+      <li><span><b>Most of it happens before the model writes.</b> At the last prompt token the shift is ~29% of a typical activation's norm; inside the reasoning and the answer it is only 1–5%, though still aligned across personas.</span></li>
+      <li><span><b>Automated grading moves the model more than human grading,</b> and on checkable tasks, <i>what</i> is graded (correctness vs quality) matters more than <i>who</i> grades.</span></li>
+      <li><span><b>Personas converge rather than translate.</b> At the prompt token the spread between personas shrinks to 0.55× baseline, and personas far from the centre move most.</span></li>
+      <li><span><b>The prompt-token shift mostly lies outside persona space;</b> the answer-token shift lies largely inside it, along an Assistant-aligned axis.</span></li>
+      <li><span><b>Behaviourally, personas mostly stay in character.</b> Open-ended adherence is unchanged; on checkable tasks it drops, most under automated correctness grading (2.12 → 1.74 out of 3).</span></li>
+    </ol>
+  </div>
+
+  <section class="result">
+    <div class="col">
+      <div class="qnum">FIGURE 2</div>
+      <h2>Is the grading shift the same for every persona?</h2>
+      <p>One dot per discovery persona: the cosine between that persona's shift and the mean shift of the other 79. Every contrast sits far to the right of the null (black tick). The prompt token is the tightest; the answer tokens are looser, and "human − baseline" in the answer is the weakest at 0.63.</p>
+    </div>
+    <figure><img src="fig2_shared_shift_per_role.png" alt="Per-persona leave-one-out cosines for six contrasts across three token positions; most dots cluster between 0.8 and 1.0, far above a null threshold near 0.1."></figure>
+    <div class="col">
+      <div class="stats">
+        <div class="stat"><span class="v">0.918</span><span class="k">LOO cosine, automated − baseline (pre)</span></div>
+        <div class="stat"><span class="v">0.998</span><span class="k">cosine with 20 held-out personas</span></div>
+        <div class="stat"><span class="v">0.966</span><span class="k">cosine on held-out questions</span></div>
+        <div class="stat"><span class="v">p = 0.0005</span><span class="k">sign-flip null (smallest possible with 2,000 draws)</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="result">
+    <div class="col">
+      <div class="qnum">FIGURE 1</div>
+      <h2>Where in the network, and how big?</h2>
+      <p>Top row: the size of the shared shift relative to a typical activation, by layer. Bottom row: how consistently personas agree on its direction. At the prompt token the shift peaks around layers 36–48; in the reasoning and answer it keeps growing towards the last layers but stays small. Agreement across personas is high at every layer.</p>
+    </div>
+    <figure><img src="fig1_layer_sweep.png" alt="Layer sweep from 16 to 56: shift size peaks around 0.34 at layer 40 for the prompt token and stays under 0.09 for answer and reasoning tokens; leave-one-out cosines stay between 0.55 and 1.0."></figure>
+  </section>
+
+  <section class="result">
+    <div class="col">
+      <div class="qnum">FIGURE 3</div>
+      <h2>What the shift looks like in persona space</h2>
+      <p>The two main axes along which baseline personas differ. Each marker is a persona at baseline; its arrow ends where it sits when told it will be graded automatically. Analytical personas near the default Assistant move up and right; most others move left, towards the middle. Arrows that look short can still be long outside these two axes.</p>
+    </div>
+    <figure class="narrow"><img src="fig3_persona_space_original_pre_auto.png" alt="Scatter of personas on the first two baseline principal components with arrows from baseline to graded positions; most arrows point inward towards the centre-left."></figure>
+  </section>
+
+  <section class="result">
+    <div class="col">
+      <div class="qnum">FIGURE 4</div>
+      <h2>Translation, convergence, or position-dependent?</h2>
+      <p>Three pre-registered hypotheses. H1, pure translation: every persona moves by the same vector, so the separation ratio is about 1 and β is about 0. H2, convergence: the ratio is below 1 and β is negative. H3: the shift depends on where the persona starts. At the prompt token every contrast converges, with automated − baseline shrinking the spread to 0.55× (β = −0.37). In open-ended answers the spread grows slightly (ratio 1.14). Estimates are cross-fitted over halves of the question families, with role-bootstrap 95% intervals.</p>
+    </div>
+    <figure><img src="fig4_geometry_H1_H2_H3.png" alt="Three dot-and-interval panels: separation ratio, contraction beta and shared-translation energy fraction for each contrast and token position."></figure>
+  </section>
+
+  <section class="result">
+    <div class="col">
+      <div class="qnum">FIGURE 5</div>
+      <h2>Who grades vs what is graded</h2>
+      <p>On the checkable tasks the design crosses grader (automated or human) with criterion (correctness or quality). At the prompt token the criterion effect is about twice the grader effect. Every bar is well above its noise floor.</p>
+    </div>
+    <figure class="narrow"><img src="fig5_evaluator_vs_criterion.png" alt="Bar chart: criterion main effect 0.16, evaluator main effect 0.08, interaction 0.06 at the prompt token; all answer and reasoning bars below 0.035."></figure>
+  </section>
+
+  <section class="result">
+    <div class="col">
+      <div class="qnum">FIGURE 6</div>
+      <h2>Does the direction generalise?</h2>
+      <p>The direction was estimated on discovery personas, questions and wordings only. It reappears almost unchanged on held-out personas and questions. On grading sentences worded differently it holds at 0.75–0.93, except "human − baseline" in the answer (0.63).</p>
+    </div>
+    <figure><img src="fig6_generalisation.png" alt="Line chart of cosine with the discovery direction for held-out roles, questions, both, and unseen wordings; values mostly between 0.75 and 1.0."></figure>
+  </section>
+
+  <section class="result">
+    <div class="col">
+      <div class="qnum">FIGURE 8</div>
+      <h2>How much of the shift lives in persona space?</h2>
+      <p>The share of the shift captured by the top k axes of baseline persona variation, against what a random direction would give. At the prompt token, even all 79 axes hold under half of the shift. In the answer, most of it is inside persona space, and the first axis lines up with the Assistant-vs-personas contrast (|cos| 0.85).</p>
+    </div>
+    <figure><img src="fig8_inside_persona_space.png" alt="Captured fraction of the shift by number of persona principal components; prompt token reaches 0.48 at 79 components, answer tokens 0.85 to 0.91."></figure>
+  </section>
+
+  <section class="result">
+    <div class="col">
+      <div class="qnum">FIGURE 7</div>
+      <h2>Do personas stay in character?</h2>
+      <p>Role adherence on the Assistant Axis rubric (0–3), judged on the final answer only, with the question shown to the judge without the grading sentence. Open-ended answers barely change. Checkable tasks lose adherence under every grading condition, most under automated correctness grading: the share fully in character falls from 50% to 34%.</p>
+    </div>
+    <figure class="narrow"><img src="fig7_role_adherence.png" alt="Bar chart of mean adherence: open-ended baseline 2.66, auto 2.63, human 2.70; checkable baseline 2.12, auto correct 1.74, human correct 1.94, auto quality 1.94, human quality 2.04."></figure>
+  </section>
+
+  <section class="setup col">
+    <h2>Setup</h2>
+    <dl>
+      <dt>Model</dt><dd>Qwen3.8-27B, thinking mode on; vLLM 0.26.0</dd>
+      <dt>Personas</dt><dd>100 Assistant Axis roles: 80 for discovery, 20 held out. 5 prompt variants each.</dd>
+      <dt>Questions</dt><dd>30 open-ended and 30 checkable; 40 for discovery, 20 for validation</dd>
+      <dt>Conditions</dt><dd>Open-ended: baseline, automated, human. Checkable: baseline plus automated or human × correctness or quality.</dd>
+      <dt>Generations</dt><dd>120,240 in the main grid, 12,120 with alternative wordings, 6,060 follow-ups</dd>
+      <dt>Token positions</dt><dd><span class="mono">pre</span> = last prompt token; <span class="mono">resp</span> = mean over final-answer tokens; <span class="mono">reason</span> = mean over reasoning tokens</dd>
+      <dt>Layers</dt><dd>16, 24, 32, 36, 40, 48, 56 (input of block L). Layer 36 was chosen in advance; full null and geometry tests run there only.</dd>
+      <dt>Judge</dt><dd>gpt-4.1-mini via OpenRouter, Assistant Axis role-adherence rubric</dd>
+    </dl>
+  </section>
+
+  <section class="setup col">
+    <h2>Caveats</h2>
+    <ul class="plain">
+      <li>The H1/H2/H3 verdicts use thresholds we set in advance. Read them with the intervals in figure 4, not as yes/no answers.</li>
+      <li>This is one model. Whether the shift matches the Assistant axis needs Qwen3.6 alongside, and the cross-model comparison.</li>
+      <li>The judge sees only the final answer, but that answer can still give away the condition, so blinding is partial.</li>
+    </ul>
+  </section>
+
+  <section class="setup col">
+    <h2>Next</h2>
+    <p>The Qwen3.6-27B analysis is running now, with the same design and figures, followed by a direct comparison of the two models. All outputs are public on Hugging Face: <a href="https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/qwen3.8-27b/analysis" target="_blank" rel="noopener">timf34/grader-shifts-persona-space-outputs</a>.</p>
+  </section>
+</div>

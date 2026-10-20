@@ -4,6 +4,8 @@
     sorh / sorh_descored generation -> steering/sorh_judgements.jsonl
   * open-ended traits: the frozen-rubric trait judge on every trait_openended generation
     -> steering/trait_judgements.jsonl
+  * persona adherence (adherence, adherence_graded): the Q1 judge -> steering/adherence_judgements.jsonl
+  * agentic misalignment: the reference classifiers -> steering/agentic_judgements.jsonl
 TruthfulQA and GSM8K are scored locally (steer/report.py), no judge.
 
     python -u scripts/12_steer_judge.py --model qwen3.6-27b
@@ -21,18 +23,31 @@ from gshift.steer.vectors import steering_dir
 def main():
     p = base_parser(__doc__)
     p.add_argument("--steering-config", default=str(ROOT / "configs" / "steering.yaml"))
-    p.add_argument("--only", choices=["sorh", "traits"], default=None)
+    p.add_argument("--only", choices=["sorh", "traits", "adherence", "agentic"], default=None)
     args = p.parse_args()
-    experiment_for(args)
+    exp = experiment_for(args)
     cfg = load_yaml(args.steering_config)
     sd = steering_dir(args.model)
     if args.only in (None, "sorh"):
         files = sorted((sd / "gen" / "sorh").glob("*.jsonl")) + sorted((sd / "gen" / "sorh_descored").glob("*.jsonl"))
-        judge_sorh(files, sd / "sorh_judgements.jsonl", cfg["judges"])
+        if files:
+            judge_sorh(files, sd / "sorh_judgements.jsonl", cfg["judges"])
     if args.only in (None, "traits"):
         files = sorted((sd / "gen" / "trait_openended").glob("*.jsonl"))
         if files:
             judge_traits(files, sd / "trait_judgements.jsonl", cfg["judges"])
+    if args.only in (None, "adherence"):
+        files = sorted((sd / "gen" / "adherence").glob("*.jsonl")) + sorted((sd / "gen" / "adherence_graded").glob("*.jsonl"))
+        if files:
+            from gshift.steer.adherence import judge_adherence
+
+            judge_adherence(files, sd / "adherence_judgements.jsonl", exp["judge"])
+    if args.only in (None, "agentic"):
+        files = sorted((sd / "gen" / "agentic").glob("*.jsonl"))
+        if files:
+            from gshift.steer.agentic import judge_agentic
+
+            judge_agentic(files, sd / "agentic_judgements.jsonl", cfg)
 
 
 if __name__ == "__main__":

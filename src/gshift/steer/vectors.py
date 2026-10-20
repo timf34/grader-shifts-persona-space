@@ -71,6 +71,11 @@ def build_steering_set(model_key: str, cfg: dict[str, Any]) -> dict[str, Any]:
                 raise FileNotFoundError(f"{p} missing: run scripts/04_analyze.py first")
             v = np.load(p).astype(np.float64)
             src = str(p.relative_to(model_dir(model_key)))
+            if d.get("orthogonal_to"):
+                v, removed = orthogonalise(v, [np.load(adir / f"{o['group']}_{o['rep']}_L{L}_{o['contrast']}.npy")
+                                               .astype(np.float64) for o in d["orthogonal_to"]])
+                src += " minus its projection on " + ", ".join(
+                    f"{o['group']}_{o['rep']}_L{L}_{o['contrast']}" for o in d["orthogonal_to"])
         elif d["source"] == "betley_repro":
             v = np.load(model_dir(model_key) / "betley_repro" / "deltas_all_layers.npy")[L].astype(np.float64)
             src = "betley_repro/deltas_all_layers.npy"
@@ -83,9 +88,11 @@ def build_steering_set(model_key: str, cfg: dict[str, Any]) -> dict[str, Any]:
         H = u.size
         np.save(out / f"{name}.npy", u)
         manifest["directions"][name] = {"source": src, "raw_norm": float(np.linalg.norm(v)), "kind": "recovered"}
+        if d.get("orthogonal_to"):
+            manifest["directions"][name]["removed_norm_frac"] = removed
     raw: dict[str, np.ndarray] = {}
     for name, d in cfg["directions"].items():
-        if name in manifest["directions"] and d["source"] == "analysis":
+        if name in manifest["directions"] and d["source"] == "analysis" and not d.get("orthogonal_to"):
             raw[name] = np.load(adir / f"{d['group']}_{d['rep']}_L{L}_{d['contrast']}.npy").astype(np.float64)
     add_projections(manifest, cfg, raw, adir, L, out)
     rnd = cfg.get("random_directions", {})
@@ -101,6 +108,13 @@ def build_steering_set(model_key: str, cfg: dict[str, Any]) -> dict[str, Any]:
     write_gguf_files(model_key, manifest)
     write_json(steering_dir(model_key) / "vectors.json", manifest)
     return manifest
+
+
+def orthogonalise(v: np.ndarray, others: list[np.ndarray]) -> tuple[np.ndarray, float]:
+    """v minus its projection on span(others); also the removed fraction of ||v||^2."""
+    Q, _ = np.linalg.qr(np.stack(others, axis=1))
+    r = v - Q @ (Q.T @ v)
+    return r, float(1.0 - (r @ r) / (v @ v))
 
 
 def add_projections(manifest: dict[str, Any], cfg: dict[str, Any], raw: dict[str, np.ndarray], adir: Path, L: int,

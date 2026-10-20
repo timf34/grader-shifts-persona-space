@@ -76,7 +76,7 @@ def assert_disjoint_from_heldout(prompts: list[Prompt], cfg: dict) -> None:
 
 
 def benchmark_prompts(name: str, cfg: dict, exp: dict, prefix: str | None = None) -> list[Prompt]:
-    b = cfg["evaluation"]["benchmarks"][name]
+    b = cfg["evaluation"]["benchmarks"].get(name) or {}
     if name in ("sorh", "sorh_descored"):
         rows = _jsonl(b["file"])
         return [Prompt(f"srh{r['id']}", name, [{"role": "user", "content": with_prefix(r[b["field"]], prefix)}],
@@ -93,6 +93,12 @@ def benchmark_prompts(name: str, cfg: dict, exp: dict, prefix: str | None = None
         from .extra_benchmarks import trait_prompts
 
         return trait_prompts(cfg, prefix)
+    if name in ("adherence", "adherence_graded"):
+        return adherence_prompts(name, b, exp, prefix)
+    if name == "agentic":
+        from .agentic import agentic_prompts
+
+        return agentic_prompts(cfg, prefix)
     if name == "persona":
         # held-out roles x validation questions, prompt variant 0, baseline (no grading prefix)
         reqs = [r for r in build_requests(exp, "main", include_default=False)
@@ -101,6 +107,33 @@ def benchmark_prompts(name: str, cfg: dict, exp: dict, prefix: str | None = None
         return [Prompt(r.id, name, [dict(m) for m in r.messages],
                        {"role": r.role, "question_id": r.question_id, "question": r.question}) for r in reqs]
     raise KeyError(name)
+
+
+def adherence_prompts(name: str, b: dict, exp: dict, prefix: str | None = None) -> list[Prompt]:
+    """Held-out roles x validation questions (Q1 main grid, baseline requests: the role's
+    system prompt and the question). `adherence` sends them as they are; `adherence_graded`
+    adds the group's graded statement (b["graded_condition"], wording b["wording"]) as the
+    Q1 user prefix, so steering against the grading direction can be tested under real
+    grading. Ids are shared between the two benchmarks (same sampling seeds, paired)."""
+    from ..config import statement
+
+    pvs = {g: set(v) for g, v in b.get("group_prompt_variants", {"checkable": [0], "original": [0]}).items()}
+    reqs = [r for r in build_requests(exp, "main", include_default=False)
+            if r.role_split == "heldout" and r.question_split == "validation" and r.condition == "baseline"
+            and r.prompt_variant in pvs.get(r.question_group, set())]
+    out = []
+    for r in reqs:
+        msgs = [dict(m) for m in r.messages]
+        graded = None
+        if name == "adherence_graded":
+            graded = b["graded_condition"][r.question_group]
+            msgs[-1]["content"] = with_prefix(msgs[-1]["content"], statement(exp, graded, b.get("wording", "w1")))
+        if prefix:
+            msgs[-1]["content"] = with_prefix(msgs[-1]["content"], prefix)
+        out.append(Prompt(f"adh_{r.role}_p{r.prompt_variant}_{r.question_id}", name, msgs,
+                          {"role": r.role, "question_id": r.question_id, "question": r.question,
+                           "group": r.question_group, "prompt_variant": r.prompt_variant, "graded_condition": graded}))
+    return out
 
 
 def natural_prefix(condition: str, exp: dict) -> str | None:

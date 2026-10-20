@@ -20,6 +20,7 @@ Writes outputs/<model>/analysis/{summary.json, tables/, vectors/, figures/}.
 
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -333,6 +334,20 @@ def descriptives(meta: pd.DataFrame, exp: dict) -> dict:
 # main entry
 # ---------------------------------------------------------------------------
 
+def _group_contrast(cells: Cells, dcells: Cells, name: str, w: dict, group: str, wording: np.ndarray) -> ContrastData:
+    cd = from_cells(cells, name, w, group, wording=wording, keep_positions=True)
+    cd._weights = w
+    cd._default = from_cells(dcells, name, w, group, keep_positions=True)
+    return cd
+
+
+def _pooled_contrast(pname: str, pdef: dict, makers: dict) -> ContrastData:
+    parts = {g: makers[(g, c)]() for g, c in pdef["parts"].items()}
+    cd = pooled(pname, pdef["label"], parts)
+    cd._default = pooled(pname, pdef["label"], {g: p._default for g, p in parts.items()})
+    return cd
+
+
 def _group_cells(store: Store, meta: pd.DataFrame, rep: str, L: int, group: str, roles: list[str], conds: list[str],
                  cats: dict, qmeta: dict, wording_filter=("discovery", "none"), H: int | None = None
                  ) -> tuple[Cells, pd.DataFrame]:
@@ -394,6 +409,9 @@ def analyze_model(model_key: str, exp: dict, out_dir: Path | None = None,
             full = L == primary
             refs = refs_by_layer.get(L, {})
             res_L: dict[str, Any] = {}
+            # contrasts are built one at a time when analysed and freed after: each holds [R, U, H]
+            # contrast vectors plus both state positions (~1-2 GB), so keeping all 17 alive at once
+            # took ~20 GB per layer
             cells_g, dcells_g, metas_g, cds = {}, {}, {}, {}
             for group in run_groups:
                 conds = list(exp["condition_sets"][group])
@@ -403,22 +421,18 @@ def analyze_model(model_key: str, exp: dict, out_dir: Path | None = None,
                 save_condition_centroids(out_dir, group, rep, L, cells_g[group], dcells_g[group])
                 wording = np.array([discovery_wording(exp, ranks[u[0]], u[1]) for u in cells_g[group].units])
                 for name, w in exp["contrasts"][group].items():
-                    cds[(group, name)] = from_cells(cells_g[group], name, w, group, wording=wording, keep_positions=True)
-                    cds[(group, name)]._weights = w
-                    cds[(group, name)]._default = from_cells(dcells_g[group], name, w, group, keep_positions=True)
+                    cds[(group, name)] = partial(_group_contrast, cells_g[group], dcells_g[group], name, w, group, wording)
             if set(GROUPS) <= set(run_groups):
                 for pname, pdef in exp.get("pooled_contrasts", {}).items():
-                    parts = {g: cds[(g, c)] for g, c in pdef["parts"].items()}
-                    cds[("pooled", pname)] = pooled(pname, pdef["label"], parts)
-                    cds[("pooled", pname)]._default = pooled(pname, pdef["label"],
-                                                              {g: cds[(g, c)]._default for g, c in pdef["parts"].items()})
+                    cds[("pooled", pname)] = partial(_pooled_contrast, pname, pdef, cds)
             base_m = meta[(meta["condition"] == "baseline") & meta["role"].isin(disc_roles)
                           & (meta["question_split"] == "discovery")]
             base_m = base_m[store.valid(rep, base_m)]
             act_norm = float(store.norms(rep, L, base_m).mean()) if len(base_m) else float("nan")
             res_L["mean_activation_norm_baseline"] = act_norm
             gs: dict[tuple[str, str], np.ndarray] = {}
-            for (group, name), cd_all in cds.items():
+            for (group, name), make_cd in cds.items():
+                cd_all = make_cd()
                 qs = cd_all.unit_attr("split")
                 cd = cd_all.subset_units(qs == "discovery").subset_roles(disc_roles)
                 block, D = shared_block(cd, refs, cfg, seed, full, "group" if group == "pooled" else "family")
@@ -454,6 +468,7 @@ def analyze_model(model_key: str, exp: dict, out_dir: Path | None = None,
                          pairwise_cos=pc.astype(np.float32))
                 res_L.setdefault(group, {})[name] = block
                 sweep_rows.append(_sweep_row(group, rep, L, name, block, refs))
+                cd_all = cd = dcd = D = vcd = hcd = ddc = None     # free before the next contrast is built
             # persona space per group and pooled
             for group in list(run_groups) + (["pooled"] if set(GROUPS) <= set(run_groups) else []):
                 gsg = {name: v for (gr, name), v in gs.items() if gr == group}

@@ -40,9 +40,7 @@ async def _judge(client, model: str, prompt: str, max_tokens: int, attempts: int
     reply = None
     for a in range(1, attempts + 1):
         try:
-            r = await client.messages.create(model=model, max_tokens=max_tokens,
-                                             messages=[{"role": "user", "content": prompt}])
-            reply = "".join(b.text for b in r.content if getattr(b, "type", "") == "text")
+            reply = await client.chat(model, [{"role": "user", "content": prompt}], max_tokens)
             s = parse_last_score(reply)
             if s is not None:
                 return s, reply, a
@@ -53,9 +51,9 @@ async def _judge(client, model: str, prompt: str, max_tokens: int, attempts: int
 
 
 async def _run(items: list[dict], cfg: dict, out_path: Path) -> None:
-    import anthropic
+    from .llm import JudgeClient
 
-    client = anthropic.AsyncAnthropic()
+    client = JudgeClient()
     sem = asyncio.Semaphore(int(cfg.get("concurrency", 16)))
     t1, t2 = _template("judge1_metric_prompt.txt"), _template("judge2_quality_prompt.txt")
     lock = asyncio.Lock()
@@ -91,8 +89,8 @@ async def _run(items: list[dict], cfg: dict, out_path: Path) -> None:
 
 
 def judge_sorh(gen_files: list[Path], out_path: Path, cfg: dict[str, Any]) -> int:
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise RuntimeError("ANTHROPIC_API_KEY is not set (put it in .env)")
+    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENROUTER_API_KEY")):
+        raise RuntimeError("set ANTHROPIC_API_KEY or OPENROUTER_API_KEY (put it in .env)")
     done = {(r["id"], r["condition"]) for r in read_jsonl(out_path) if not r.get("unparsed")}
     items, no_answer = [], []
     for f in gen_files:

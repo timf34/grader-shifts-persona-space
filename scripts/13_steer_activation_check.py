@@ -27,7 +27,8 @@ def main():
     spec = get_model(args.model)
     man, vecs = load_steering_set(spec.key)
     sd = steering_dir(spec.key)
-    strength = args.strength or json.loads((sd / "calibration.json").read_text())["s_star"]
+    fixed = cfg["evaluation"].get("strengths")
+    strength = args.strength or (max(fixed) if fixed else json.loads((sd / "calibration.json").read_text())["s_star"])
     ac = cfg["activation_check"]
     dirs = [d for d in ac["directions"] if d in vecs] + [f"random{k}" for k in range(int(ac.get("n_random", 0)))
                                                          if f"random{k}" in vecs]

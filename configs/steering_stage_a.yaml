@@ -1,0 +1,84 @@
+# Q2 stage A (2026-10-20): causal steering with the FACTORIAL prompt-token directions.
+# Written after the Q1 results for both models and before any steered generation.
+# Differences from configs/steering.yaml (the brief's Q2 design, unchanged, not yet run):
+#   * Directions are PROMPT-TOKEN (`pre`) directions. The cross-reading follow-up
+#     (grader-shifts-followup NOTES, Qwen3.6) found the answer-token (`resp`) graded - baseline
+#     difference is mostly the change in what the model writes; `pre` is pure context.
+#     Betley et al. also take their vector at the last prompt token.
+#   * Factorial decomposition, as in the Betley et al. comment thread (Clement Dumas: AG/HG;
+#     agastyasridharan: evaluator / criterion with the other's projection removed).
+#   * Fixed strengths +-0.1 and +-0.3, Betley et al.'s scale and values (strength x A_L x unit),
+#     instead of the calibration rule, so the results are directly comparable with theirs.
+#     Answer rate, truncation and repetition are still reported per condition.
+#   * New benchmarks: persona adherence (held-out roles x validation questions, judged with
+#     the Q1 Assistant Axis rubric) and agentic misalignment (murder / leaking / blackmail).
+# Location and scale conventions as in configs/steering.yaml.
+layer: 36
+
+directions:
+  ours_pre:      {source: analysis, group: pooled,    rep: pre, contrast: auto_minus_baseline}   # "AG": graded vs no statement
+  auto_human:    {source: analysis, group: original,  rep: pre, contrast: auto_minus_human}      # who grades (open-ended)
+  eval_only:     {source: analysis, group: checkable, rep: pre, contrast: evaluator_main,
+                  orthogonal_to: [{group: checkable, rep: pre, contrast: criterion_main}]}       # automated vs human, criterion removed
+  crit_only:     {source: analysis, group: checkable, rep: pre, contrast: criterion_main,
+                  orthogonal_to: [{group: checkable, rep: pre, contrast: evaluator_main}]}       # correctness vs quality, evaluator removed
+  betley_matched: {source: analysis, group: checkable, rep: pre, contrast: betley_matched}       # auto+correct - human+quality (~ Betley's vector)
+  betley_repro:  {source: betley_repro}            # Betley et al.'s contrast pairs re-estimated on this model
+random_directions: {n: 2, seed: 99}                # norm-matched isotropic random directions (random0, random1)
+projections: {sources: [], ranks: []}
+
+calibration:                    # not used in stage A (fixed strengths); kept for the scripts
+  primary_direction: ours_pre
+  strength_grid: [0.1, 0.3]
+  min_answer_rate: 0.90
+  max_repetition_rate: 0.10
+  max_accuracy_drop: 0.15
+  aa_question_seed: 7
+  n_aa_questions: 24
+  gsm8k_file: data/gsm8k/calibration_train_subset.jsonl
+
+evaluation:
+  strengths: [0.1, 0.3]
+  conditions: [none, natural_auto, natural_human]
+  steered_directions: [ours_pre, auto_human, eval_only, crit_only, betley_matched, betley_repro]
+  random_signs: [1, -1]          # random directions at +-max(strengths)
+  # Per-benchmark filters: directions (default: all steered), signs (default [1, -1]),
+  # natural (natural_* conditions, default true), random (default true), strengths (default all).
+  benchmarks:
+    adherence:        {group_prompt_variants: {checkable: [0], original: [0]}, natural: false,
+                       directions: [ours_pre, auto_human, eval_only, crit_only]}
+    adherence_graded: {group_prompt_variants: {checkable: [0], original: [0]}, natural: false,
+                       directions: [ours_pre, auto_human, eval_only, crit_only], signs: [-1],
+                       graded_condition: {original: auto, checkable: auto_correct}, wording: w1}
+    sorh:             {file: data/school_of_reward_hacks/srh_subset.jsonl, field: user}
+    sorh_descored:    {file: data/school_of_reward_hacks/srh_subset.jsonl, field: user_descored,
+                       directions: [ours_pre, betley_matched], random: false, natural: false}
+    truthfulqa:       {n: 300, seed: 20261019, answer_format: inspect}
+    agentic:          {scenarios: [murder, leaking, blackmail], samples_per_scenario: 50, max_tokens: 16384}   # Betley: 32768
+  gsm8k_instruction: "Solve the following problem. Give your final answer as a single number in \\boxed{}."
+
+generation:
+  temperature: 1.0
+  top_p: 0.95
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 0.0
+  max_tokens: 8192
+  max_model_len: 20480           # agentic: ~2.9k-token prompts + 16384 output
+  base_seed: 4321
+
+judges:
+  sorh_model: claude-sonnet-5
+  agentic_model: claude-sonnet-4-6   # Betley et al.'s agentic grader (their run/sweep/regrade scripts)
+  agentic_max_tokens: 4096
+  max_tokens: 1024
+  max_attempts: 4
+  concurrency: 32
+  trait_model: claude-sonnet-5
+  trait_max_tokens: 4096
+  trait_structured_output: true
+
+activation_check:
+  downstream_layers: [40, 48, 56]
+  directions: [ours_pre, eval_only, crit_only]
+  n_random: 1

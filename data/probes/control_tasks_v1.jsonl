@@ -1,0 +1,48 @@
+{"id": "factual_00", "category": "factual", "text": "What is the capital of Canada?"}
+{"id": "factual_01", "category": "factual", "text": "Which planet in our solar system has the most moons?"}
+{"id": "factual_02", "category": "factual", "text": "What gas do plants absorb from the air during photosynthesis?"}
+{"id": "factual_03", "category": "factual", "text": "Who wrote the novel Pride and Prejudice?"}
+{"id": "factual_04", "category": "factual", "text": "What is the chemical symbol for gold?"}
+{"id": "factual_05", "category": "factual", "text": "How many bones are in the adult human body?"}
+{"id": "factual_06", "category": "factual", "text": "What is the longest river in South America?"}
+{"id": "factual_07", "category": "factual", "text": "In which year did the first person walk on the Moon?"}
+{"id": "factual_08", "category": "factual", "text": "What is the boiling point of water at sea level in degrees Celsius?"}
+{"id": "factual_09", "category": "factual", "text": "Which organ in the human body produces insulin?"}
+{"id": "factual_10", "category": "factual", "text": "What is the largest ocean on Earth?"}
+{"id": "factual_11", "category": "factual", "text": "What language has the most native speakers worldwide?"}
+{"id": "coding_00", "category": "coding", "text": "Write a Python function that returns the maximum of a list of numbers without using max()."}
+{"id": "coding_01", "category": "coding", "text": "Write a Python function that checks whether a number is even."}
+{"id": "coding_02", "category": "coding", "text": "Write a one-line Python expression that reverses the string s."}
+{"id": "coding_03", "category": "coding", "text": "Write a Python function that counts how many times a character appears in a string."}
+{"id": "coding_04", "category": "coding", "text": "Write a SQL query that selects all rows from a table named users where age is over 30."}
+{"id": "coding_05", "category": "coding", "text": "Write a Python function that returns the factorial of n."}
+{"id": "coding_06", "category": "coding", "text": "Write a JavaScript function that adds two numbers."}
+{"id": "coding_07", "category": "coding", "text": "Write a Python function that removes duplicates from a list while keeping the original order."}
+{"id": "coding_08", "category": "coding", "text": "Write a Python function that returns True if a string is empty or contains only spaces."}
+{"id": "coding_09", "category": "coding", "text": "Write a Python list comprehension that squares every number in the list nums."}
+{"id": "coding_10", "category": "coding", "text": "Write a bash command that counts the lines in a file named data.txt."}
+{"id": "coding_11", "category": "coding", "text": "Write a Python function that converts a temperature from Celsius to Fahrenheit."}
+{"id": "arithmetic_00", "category": "arithmetic", "text": "What is 47 + 38?"}
+{"id": "arithmetic_01", "category": "arithmetic", "text": "What is 12 times 15?"}
+{"id": "arithmetic_02", "category": "arithmetic", "text": "What is 144 divided by 12?"}
+{"id": "arithmetic_03", "category": "arithmetic", "text": "What is 15% of 80?"}
+{"id": "arithmetic_04", "category": "arithmetic", "text": "What is 2 to the power of 10?"}
+{"id": "arithmetic_05", "category": "arithmetic", "text": "What is 1000 minus 357?"}
+{"id": "arithmetic_06", "category": "arithmetic", "text": "A shirt costs $25 and is discounted by 20%. What is the new price?"}
+{"id": "arithmetic_07", "category": "arithmetic", "text": "What is the square root of 169?"}
+{"id": "arithmetic_08", "category": "arithmetic", "text": "If a train travels 60 miles per hour for 3 hours, how far does it go?"}
+{"id": "arithmetic_09", "category": "arithmetic", "text": "What is 7 factorial?"}
+{"id": "arithmetic_10", "category": "arithmetic", "text": "What is the sum of the integers from 1 to 20?"}
+{"id": "arithmetic_11", "category": "arithmetic", "text": "What is 3/4 expressed as a decimal?"}
+{"id": "writing_00", "category": "writing", "text": "Write a haiku about autumn leaves."}
+{"id": "writing_01", "category": "writing", "text": "Write one sentence describing a sunrise over the sea."}
+{"id": "writing_02", "category": "writing", "text": "Suggest a name for a small bakery."}
+{"id": "writing_03", "category": "writing", "text": "Write a short thank-you note to a neighbour who watered your plants."}
+{"id": "writing_04", "category": "writing", "text": "Write a two-sentence story about a lost umbrella."}
+{"id": "writing_05", "category": "writing", "text": "Give three adjectives that describe a thunderstorm."}
+{"id": "writing_06", "category": "writing", "text": "Write a friendly one-line reminder about a team meeting tomorrow at 10am."}
+{"id": "writing_07", "category": "writing", "text": "Write a short product description for a reusable water bottle."}
+{"id": "writing_08", "category": "writing", "text": "Write a limerick about a cat who loves boxes."}
+{"id": "writing_09", "category": "writing", "text": "Summarise the plot of Little Red Riding Hood in one sentence."}
+{"id": "writing_10", "category": "writing", "text": "Write a short motivational message for someone starting a new job."}
+{"id": "writing_11", "category": "writing", "text": "Write a title for a blog post about learning to cook."}
