@@ -115,7 +115,7 @@ sync_logs() {  # the rp job log next to the step logs
 upload_logs() {
   [ -n "${HF_DATASET_REPO:-}" ] || return 0
   sync_logs
-  $PY -u scripts/upload_hf.py --folder "$LOGDIR" --path-in-repo "logs/$JOB/$MODEL$SHARD_TAG" --message "logs $JOB $MODEL$SHARD_TAG" \
+  $PY -u scripts/upload_hf.py --folder "$LOGDIR" --path-in-repo "${HF_LOG_PREFIX:-logs}/$JOB/$MODEL$SHARD_TAG" --message "logs $JOB $MODEL$SHARD_TAG" \
     > "$LOGDIR/upload_logs.out" 2>&1 || { echo "!! log upload failed (see $LOGDIR/upload_logs.out)"; return 1; }
 }
 
