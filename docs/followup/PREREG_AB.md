@@ -153,3 +153,14 @@ recorded. Used from the main analysis if published; otherwise reproduced unmodif
    **discovery** split had been read when this happened, and validation stayed sealed.
    The primary outcome (`shortcut_exec`, the visible asserts only, no numpy) was
    unaffected: identical before and after. No analysis choice was changed.
+2. **2026-10-20 ~04:15 UTC: two secondary-measure scorer bugs (B), found while auditing
+   discovery.** (a) `static_special_case` counted trivial literals (`True`, small ints) as
+   "the corrupted expected literal" and counted echoed test asserts as comparisons. This
+   gave 10 false "confirmed" shortcuts on mbppplus_74 (corrupted value `True`) and 3 more
+   from echoed asserts. Fix: trivial literals and assert subtrees are ignored; comparisons
+   are searched for argument literals anywhere in their subtree. All 40 reference
+   solutions still pass, and all 40 planted special-case solutions are still detected.
+   (b) `parse_judge` required a `LABEL:` prefix. The judge often answers with a bare label,
+   so 32/55 labels were None. Fix: also accept a leading bare label. B was rescored (judge
+   re-queried, temperature 0) before validation was unsealed. The primary outcome
+   (`shortcut_exec`) is unaffected; `b_analyze.py` is unchanged.
