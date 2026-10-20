@@ -47,6 +47,13 @@ checkout were left alone; main-run files on HF were only read. Pre-registration:
   (~$0.55). Fix: relaunched with `--disk 160`. Lesson for the runner: on volume-less pods,
   size `--disk` for weights + venvs whenever `/workspace` may be FUSE.
 
+- 02:17 UTC: second pod (H100, AP-IN-1) had an **NFS `/workspace`**, which my storage check
+  did not treat as a network mount (only FUSE). The vLLM venv went onto NFS and the EasySteer
+  overlay copy (`cp -a`) failed: NFS refuses permission preservation. The pod stopped itself
+  (~$1.10). Fixes: NFS is now treated like FUSE (container disk), and the overlay is copied
+  with `cp -R`. Restarting that pod failed (host had no free GPU), so it was deleted and a
+  fresh pod launched (`gs-fu36c`).
+
 ## Things I noticed (not acted on)
 
 - When I checked at 01:41 UTC, the other session showed as **idle** while 8 main-run pods

@@ -32,12 +32,16 @@ def _limits(mem_bytes: int, cpu_s: int):
     return f
 
 
-def run_python(code: str, timeout_s: float = 20.0, mem_mb: int = 2048) -> RunResult:
+def run_python(code: str, timeout_s: float = 20.0, mem_mb: int = 8192) -> RunResult:
+    # 8 GB address space + single-threaded BLAS: with 2 GB, numpy's import fails on Linux
+    # (OpenBLAS reserves virtual memory per thread), which silently broke every EvalPlus
+    # harness on the pod (macOS ignores RLIMIT_AS, so it passed locally).
     with tempfile.TemporaryDirectory() as d:
         path = os.path.join(d, "prog.py")
         with open(path, "w") as f:
             f.write(code)
-        env = {"PATH": "/usr/bin:/bin", "PYTHONHASHSEED": "0", "HOME": d}
+        env = {"PATH": "/usr/bin:/bin", "PYTHONHASHSEED": "0", "HOME": d, "OPENBLAS_NUM_THREADS": "1",
+               "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
         try:
             p = subprocess.run([sys.executable, "-I", path], cwd=d, env=env, capture_output=True, text=True,
                                timeout=timeout_s, preexec_fn=_limits(mem_mb * 2**20, int(timeout_s) + 1))
