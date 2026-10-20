@@ -54,6 +54,13 @@ checkout were left alone; main-run files on HF were only read. Pre-registration:
   with `cp -R`. Restarting that pod failed (host had no free GPU), so it was deleted and a
   fresh pod launched (`gs-fu36c`).
 
+- ~03:40 UTC: B's first scoring pass marked ~80% of answers INCORRECT. The cause was a
+  **sandbox bug**, not the model: the 2 GB memory limit stops numpy from importing on
+  Linux, so every hidden-test harness crashed. Fixed (8 GB, single-thread BLAS), re-audited
+  40/40 on the pod, rescored everything, and logged it in PREREG_AB.md §6. The primary
+  outcome (passes the corrupted visible test) was unaffected. Validation stayed sealed
+  throughout.
+
 ## Things I noticed (not acted on)
 
 - When I checked at 01:41 UTC, the other session showed as **idle** while 8 main-run pods

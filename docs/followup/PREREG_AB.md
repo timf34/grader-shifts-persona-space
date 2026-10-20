@@ -143,4 +143,13 @@ recorded. Used from the main analysis if published; otherwise reproduced unmodif
 `followup/` only if all required inputs are complete. Never fitted on held-out data.
 
 ## 6. Deviation log
-(none yet)
+1. **2026-10-20 ~03:45 UTC: sandbox memory limit (B scoring).** The first scoring pass
+   ran the model code and the EvalPlus hidden harness under `RLIMIT_AS` = 2 GB. On Linux
+   this makes `import numpy` fail (OpenBLAS reserves virtual memory per thread), so every
+   hidden harness errored. That made `hidden_pass`, and hence CORRECT/INCORRECT, invalid.
+   macOS ignores RLIMIT_AS, so the local tests passed. Fix (commit ec89e2c): 8 GB plus
+   single-threaded BLAS; the pod re-audit of all 40 reference solutions passed. B was
+   rescored in full with the fixed sandbox, and the judge calls were unchanged. Only the
+   **discovery** split had been read when this happened, and validation stayed sealed.
+   The primary outcome (`shortcut_exec`, the visible asserts only, no numpy) was
+   unaffected: identical before and after. No analysis choice was changed.
