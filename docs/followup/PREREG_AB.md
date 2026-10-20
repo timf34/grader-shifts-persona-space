@@ -164,6 +164,13 @@ recorded. Used from the main analysis if published; otherwise reproduced unmodif
    so 32/55 labels were None. Fix: also accept a leading bare label. B was rescored (judge
    re-queried, temperature 0) before validation was unsealed. The primary outcome
    (`shortcut_exec`) is unaffected; `b_analyze.py` is unchanged.
+3. **2026-10-20 ~04:20 UTC: B scored and analysed locally, not on the pod.** The pod lost
+   its network (DNS, then its public IP) before uploading scores, so the final scoring,
+   judging and both analyses were re-run on macOS from the HF copy of the generations
+   (byte-identical size). Local discovery scores match the pod's in every executable field
+   (0 diffs / 360); 1 judge label differs (temperature-0 nondeterminism). Validation was
+   analysed with the committed `b_analyze.py` (unchanged since fba3f42) and
+   `b_disclosure.py` (109271d).
 
 ## 7. Addendum (2026-10-20 ~04:20 UTC): disclosure hypotheses, frozen before validation was unsealed
 Motivated by **discovery** only. Discovery: the visible answer explicitly notes the
