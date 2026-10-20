@@ -18,10 +18,15 @@ def main():
     p.add_argument("--layers", nargs="+", type=int, default=None)
     p.add_argument("--groups", nargs="+", default=None, help="original checkable pooled")
     p.add_argument("--no-plots", action="store_true")
+    p.add_argument("--out-dir", default=None,
+                   help="write here instead of outputs/<model>/analysis (e.g. one directory per representation "
+                        "run in parallel, then scripts/merge_analysis.py)")
     args = p.parse_args()
     exp = experiment_for(args)
-    analyze_model(args.model, exp, reps=tuple(args.reps), layers=args.layers, groups=args.groups,
-                  make_plots=not args.no_plots)
+    from pathlib import Path
+
+    analyze_model(args.model, exp, out_dir=Path(args.out_dir) if args.out_dir else None, reps=tuple(args.reps),
+                  layers=args.layers, groups=args.groups, make_plots=not args.no_plots)
 
 
 if __name__ == "__main__":

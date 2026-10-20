@@ -79,26 +79,52 @@ def _r2(E: np.ndarray, P: np.ndarray) -> float:
 
 
 def _loo_r2(b: np.ndarray, e: np.ndarray, ranks: list[int], ridge: float) -> dict[str, float]:
-    """Leave-one-role-out prediction of residual displacements e_r from baseline positions."""
+    """Leave-one-role-out prediction of residual displacements e_r from baseline positions.
+
+    Identical estimator to fitting, for every held-out role r, a rank-k PCA on the other
+    roles' centred baseline positions and a ridge map from their k scores to their residual
+    displacements -- computed from the R x R Gram matrix of b: all leave-one-out PCAs are
+    batched eigendecompositions of (R-1) x (R-1) centred Gram matrices, never SVDs of
+    (R-1) x H matrices (H = 5120), which made the permutation null take hours."""
     R = len(b)
     out: dict[str, float] = {}
-    Pi = np.zeros_like(e)                       # isotropic contraction model
-    for r in range(R):
-        tr = np.arange(R) != r
-        bt, et = b[tr], e[tr]
-        beta = float((et * bt).sum() / (bt**2).sum()) if (bt**2).sum() > 0 else 0.0
-        Pi[r] = beta * b[r]
-    out["r2_isotropic"] = _r2(e, Pi)
+    Gm = b @ b.T                                    # [R, R]
+    ss = np.einsum("ij,ij->i", b, b)                 # ||b_r||^2
+    be = np.einsum("ij,ij->i", b, e)                 # b_r . e_r
+    # isotropic contraction model: beta_{-r} = sum_{s != r} e_s.b_s / sum_{s != r} ||b_s||^2
+    den = ss.sum() - ss
+    beta = np.where(den > 0, (be.sum() - be) / np.where(den > 0, den, 1), 0.0)
+    out["r2_isotropic"] = _r2(e, beta[:, None] * b)
+    if not ranks:
+        return out
+    n = R - 1
+    idx = np.array([np.delete(np.arange(R), r) for r in range(R)])        # [R, n] training rows
+    Gt = Gm[idx[:, :, None], idx[:, None, :]]                              # [R, n, n]
+    rs = Gt.mean(2)                                                        # [R, n]
+    tot = rs.mean(1)                                                       # [R]
+    Gc = Gt - rs[:, :, None] - rs[:, None, :] + tot[:, None, None]         # centred Gram
+    lam, U = np.linalg.eigh(Gc)                                            # ascending
+    lam, U = lam[:, ::-1], U[:, :, ::-1]
+    gr = Gm[np.arange(R)[:, None], idx]                                    # [R, n]: b_r . b_j
+    gx = gr - gr.mean(1, keepdims=True) - rs + tot[:, None]                # (b_r - m) . (b_j - m)
+    kmax = min(max(ranks), n)
+    Uk = U[:, :, :kmax]                                                    # [R, n, kmax]
+    et_mean = (e.sum(0)[None] - e) / n                                     # [R, H]: training-row mean of e
+    # U_k^T E_t for every held-out role in ONE matmul: pad U_k to all R rows (zero at row r)
+    Upad = np.zeros((R, R, kmax))
+    Upad[np.arange(R)[:, None], idx] = Uk
+    UtE = (Upad.transpose(0, 2, 1).reshape(R * kmax, R) @ e).reshape(R, kmax, -1)
+    UtE -= Uk.sum(1)[:, :, None] * et_mean[:, None, :]                    # U_k^T (E_t - mean)
+    proj = np.einsum("rj,rjk->rk", gx, Uk)                                 # (b_r - m) . u_j  (= z_r,j * sqrt(lam_j))
     for k in ranks:
-        P = np.zeros_like(e)
-        for r in range(R):
-            tr = np.arange(R) != r
-            bt = b[tr] - b[tr].mean(0)
-            _, _, Vt = np.linalg.svd(bt, full_matrices=False)
-            V = Vt[: min(k, len(Vt))]
-            Z = bt @ V.T
-            W = _fit_linear(Z, e[tr] - e[tr].mean(0), ridge)
-            P[r] = ((b[r] - b[tr].mean(0)) @ V.T) @ W + e[tr].mean(0)
+        kk = min(k, n)
+        lk = np.clip(lam[:, :kk], 0, None)                                 # [R, kk]
+        keep = lk > (lk.max(1, keepdims=True) * 1e-12)
+        # ridge on the orthogonal scores Z (Z^T Z = diag(lam)): W = diag(1/(lam + reg)) Z^T (E_t - mean),
+        # reg = ridge x mean(lam); prediction z_r W = sum_j (proj_j / (lam_j + reg)) u_j^T (E_t - mean)
+        reg = ridge * np.where(keep, lk, 0).sum(1) / np.maximum(keep.sum(1), 1)
+        coef = np.where(keep, proj[:, :kk] / (lk + reg[:, None]), 0.0)
+        P = et_mean + np.einsum("rj,rjh->rh", coef, UtE[:, :kk])
         out[f"r2_linear_k{k}"] = _r2(e, P)
     return out
 
@@ -109,14 +135,40 @@ def _corr(x: np.ndarray, y: np.ndarray) -> float:
     return float(np.corrcoef(x, y)[0, 1])
 
 
-def _one_split(cd: ContrastData, mA: np.ndarray, ranks: list[int], ridge: float,
-               axis_fn=None) -> dict[str, float]:
-    """Statistics for predictors from half A, targets from half B (and the separation /
-    shared-energy cross-products, which are symmetric)."""
+def _aggregate(cd: ContrastData, masks: list[np.ndarray], ranks, ridge, axis_fn=None) -> dict[str, float]:
+    rows = []
+    for m in masks:
+        rows.append(_one_split(cd, m, ranks, ridge, axis_fn))
+        rows.append(_one_split(cd, ~m, ranks, ridge, axis_fn))
+    keys = sorted({k for r in rows for k in r})
+    return {k: float(np.nanmean([r.get(k, np.nan) for r in rows])) for k in keys}
+
+
+def _halves(cd: ContrastData, mA: np.ndarray) -> dict[str, np.ndarray]:
+    """Per-role matched-unit means of half A (units in mA) and half B (the rest): the
+    reference-state position and the displacement, computed ONCE per split; every
+    permutation / bootstrap replicate only re-indexes these [R, H] arrays."""
     cA, cB = cd.subset_units(mA), cd.subset_units(~mA)
-    refA, refB = state_position(cA, "B"), state_position(cB, "B")      # reference (e.g. baseline)
-    conA, conB = state_position(cA, "A"), state_position(cB, "A")      # condition
-    DA, DB = disp(cA), disp(cB)
+    return {"refA": state_position(cA, "B"), "refB": state_position(cB, "B"), "DA": disp(cA), "DB": disp(cB)}
+
+
+def _swap(h: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+    """The opposite orientation of a split (predictors from B, targets from A)."""
+    return {"refA": h["refB"], "refB": h["refA"], "DA": h["DB"], "DB": h["DA"]}
+
+
+def _split_stats(h: dict[str, np.ndarray], ranks: list[int], ridge: float, axis: np.ndarray | None = None,
+                 perm: np.ndarray | None = None, idx: np.ndarray | None = None) -> dict[str, float]:
+    """Statistics for predictors from half A, targets from half B (and the separation /
+    shared-energy cross-products, which are symmetric). perm: pair each role's baseline
+    position with role perm[r]'s displacements (null); idx: resample roles (bootstrap).
+    The condition-state position is reference + displacement (two-state contrast)."""
+    refA, refB, DA, DB = h["refA"], h["refB"], h["DA"], h["DB"]
+    if idx is not None:
+        refA, refB, DA, DB = refA[idx], refB[idx], DA[idx], DB[idx]
+    if perm is not None:
+        DA, DB = DA[perm], DB[perm]
+    conA, conB = refA + DA, refB + DB
     b = _center(refA)
     e = _center(DB)
     out: dict[str, float] = {}
@@ -135,23 +187,21 @@ def _one_split(cd: ContrastData, mA: np.ndarray, ranks: list[int], ridge: float,
     if gn > 0:
         u = gA / gn
         out["corr_baseline_vs_shift_along_g"] = _corr(b @ u, DB @ u)
-    _, _, Vt = np.linalg.svd(b, full_matrices=False)
-    out["corr_baseline_pc1_vs_shift_pc1"] = _corr(b @ Vt[0], e @ Vt[0])
-    if axis_fn is not None:
-        a = axis_fn(mA)
-        if a is not None and np.linalg.norm(a) > 0:
-            ah = a / np.linalg.norm(a)
-            out["corr_baseline_vs_shift_along_assistant"] = _corr(b @ ah, DB @ ah)
+    # leading PC of b from its R x R Gram matrix (b is R x H with R << H)
+    w, U = np.linalg.eigh(b @ b.T)
+    if w[-1] > 0:
+        v1 = U[:, -1] @ b / np.sqrt(w[-1])
+        out["corr_baseline_pc1_vs_shift_pc1"] = _corr(b @ v1, e @ v1)
+    if axis is not None and np.linalg.norm(axis) > 0:
+        ah = axis / np.linalg.norm(axis)
+        out["corr_baseline_vs_shift_along_assistant"] = _corr(b @ ah, DB @ ah)
     return out
 
 
-def _aggregate(cd: ContrastData, masks: list[np.ndarray], ranks, ridge, axis_fn=None) -> dict[str, float]:
-    rows = []
-    for m in masks:
-        rows.append(_one_split(cd, m, ranks, ridge, axis_fn))
-        rows.append(_one_split(cd, ~m, ranks, ridge, axis_fn))
-    keys = sorted({k for r in rows for k in r})
-    return {k: float(np.nanmean([r.get(k, np.nan) for r in rows])) for k in keys}
+def _one_split(cd: ContrastData, mA: np.ndarray, ranks: list[int], ridge: float,
+               axis_fn=None) -> dict[str, float]:
+    """Statistics for predictors from half A (units in mA), targets from half B."""
+    return _split_stats(_halves(cd, mA), ranks, ridge, None if axis_fn is None else axis_fn(mA))
 
 
 def geometry_report(cd: ContrastData, cfg: dict, seed: int = 0, default_cd: ContrastData | None = None,
@@ -172,23 +222,23 @@ def geometry_report(cd: ContrastData, cfg: dict, seed: int = 0, default_cd: Cont
         d = state_position(default_cd.subset_units(mA), "B")[0]
         return d - state_position(cd.subset_units(mA), "B").mean(0)
 
-    obs = _aggregate(cd, masks, ranks, ridge, axis_fn)
+    halves = [_halves(cd, m) for m in masks]
+    rows = []
+    for m, h in zip(masks, halves):
+        rows.append(_split_stats(h, ranks, ridge, axis_fn(m)))
+        rows.append(_split_stats(_swap(h), ranks, ridge, axis_fn(~m)))
+    keys = sorted({k for r in rows for k in r})
+    obs = {k: float(np.nanmean([r.get(k, np.nan) for r in rows])) for k in keys}
     rng = np.random.default_rng(seed)
-    # null: shuffle which role's targets go with which role's predictors
+    # null: shuffle which role's targets go with which role's predictors (each role keeps
+    # its own baseline position; its displacements are another role's)
     n_perm = int(g.get("n_permutations", 1000))
     null_keys = ["beta"] + [k for k in obs if k.startswith("r2_") or k.startswith("corr_")]
     null = {k: [] for k in null_keys}
     R = len(cd.roles)
     for _ in range(n_perm):
         perm = rng.permutation(R)
-        cdp = ContrastData(cd.name, cd.label, cd.roles, cd.units, cd.part, cd.part_weight, cd.E[perm], cd.M[perm],
-                           cd.qmeta, cd.categories, cd.wording,
-                           {"A": cd.positions["A"][perm] - cd.positions["B"][perm] + cd.positions["B"],
-                            "B": cd.positions["B"]})
-        # permuting E (and the condition positions consistently) keeps each role's
-        # predictor but pairs it with another role's displacement
-        m = masks[rng.integers(len(masks))]
-        r = _one_split(cdp, m, ranks, ridge, None)
+        r = _split_stats(halves[rng.integers(len(masks))], ranks, ridge, None, perm=perm)
         for k in null_keys:
             if k in r:
                 null[k].append(r[k])
@@ -210,11 +260,7 @@ def geometry_report(cd: ContrastData, cfg: dict, seed: int = 0, default_cd: Cont
         idx = rng.integers(0, R, size=R)
         if len(set(idx.tolist())) < 4:
             continue
-        cdb = ContrastData(cd.name, cd.label, [cd.roles[i] for i in idx], cd.units, cd.part, cd.part_weight,
-                           cd.E[idx], cd.M[idx], cd.qmeta, cd.categories, cd.wording,
-                           {k: v[idx] for k, v in cd.positions.items()})
-        m = masks[rng.integers(len(masks))]
-        boot.append(_one_split(cdb, m, ranks, ridge, None))
+        boot.append(_split_stats(halves[rng.integers(len(masks))], ranks, ridge, None, idx=idx))
     ci = {}
     for k in ("beta", "separation_ratio", "shared_energy_frac_cf", *[f"r2_linear_k{k}" for k in ranks], "r2_isotropic"):
         xs = np.array([b.get(k, np.nan) for b in boot], float)
