@@ -112,3 +112,62 @@ def test_cross_reading_cells_through_extractor():
                    ("graded", "baseline"): by[(q, "auto", "graded", "baseline")],
                    ("graded", "graded"): by[(q, "auto", "graded", "graded")]})
     assert np.allclose(d["Delta"], d["CE_B"] + d["TE_c"])
+
+
+def test_transplant_implementation_checks():
+    """Same-context donor and lambda=0 are no-ops; at lambda=1 the edited host coordinate
+    equals the donor's (donor-matched coordinate replacement)."""
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("transformers")
+    from test_gpu_code_on_cpu import tiny_model
+
+    from gshift.followup.transplant import TransplantConfig, generate_with_transplant, random_like
+    from gshift.hooks import capture_residual
+
+    m = tiny_model(vocab=512)
+    torch.manual_seed(0)
+    host = torch.randint(0, 512, (9,)).tolist()
+    donor = host[:3] + torch.randint(0, 512, (6,)).tolist()          # different context, same length
+    U = random_like(np.zeros((2, 32)), seed=1)
+    plain, _ = generate_with_transplant(m, host, host, TransplantConfig(layer=4, U=U, mode="none"), 6)
+    same, _ = generate_with_transplant(m, host, host, TransplantConfig(layer=4, U=U, lam=1.0), 6)
+    assert same == plain
+    zero, _ = generate_with_transplant(m, host, donor, TransplantConfig(layer=4, U=U, lam=0.0), 6)
+    assert zero == plain
+    cfg = TransplantConfig(layer=4, U=U, lam=1.0)
+    gen, log = generate_with_transplant(m, host, donor, cfg, 1)
+    # recompute the first step's donor coordinate and the edited host coordinate
+    with torch.no_grad(), capture_residual(m, [4]) as st:
+        m(input_ids=torch.tensor([donor]))
+    c_d = torch.tensor(U, dtype=torch.float32) @ st[4][0, -1].float()
+    assert np.allclose(log[0]["donor"], c_d.numpy(), atol=1e-4)
+    big, _ = generate_with_transplant(m, host, donor, TransplantConfig(layer=4, U=U, lam=50.0), 6)
+    rel, _ = generate_with_transplant(m, host, donor, TransplantConfig(layer=4, U=U, lam=50.0, release_after=2,
+                                                                       recompute_cache_on_release=True), 6)
+    assert len(big) == len(rel) == 6
+
+
+def test_selfrating_axis_recovers_planted_direction():
+    from gshift.followup.selfrating import Standardiser, context_by_strategy, cut_points, fit_axis, parse_rating, validate_axis
+
+    rng = np.random.default_rng(0)
+    H, n = 40, 600
+    u_true = rng.normal(size=H)
+    u_true /= np.linalg.norm(u_true)
+    types = rng.integers(0, 3, n)
+    r = rng.integers(0, 101, n).astype(float)
+    X = rng.normal(size=(n, H)) + np.outer((r - 50) / 25, u_true) + 3 * np.eye(3)[types] @ rng.normal(size=(3, H))
+    X[:, 0] *= 100                                                    # a sink coordinate
+    disc, held = np.arange(n) < 400, np.arange(n) >= 400
+    std = Standardiser.fit(X[disc])
+    assert not std.keep[0]
+    u = fit_axis(X[disc], r[disc], types[disc], std)
+    v = validate_axis(X[held], r[held], std, u)
+    assert v["validated"] and v["spearman"] > 0.3
+    planted = (u_true / std.sd) * std.keep                     # the planted direction in standardised space
+    assert abs(float(u @ planted / np.linalg.norm(planted))) > 0.6
+    assert parse_rating(" 85.") == 85 and parse_rating("none") is None and parse_rating("250") is None
+    assert len(cut_points(900)) == 8 and cut_points(5) == [1, 2, 3, 4]
+    s = {("legit", "base"): np.zeros(30), ("shortcut", "base"): np.zeros(30) - 1,
+         ("legit", "graded"): np.zeros(30), ("shortcut", "graded"): np.ones(30)}
+    assert context_by_strategy(s)["interaction"] == 2.0
