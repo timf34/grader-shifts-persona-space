@@ -144,6 +144,34 @@ def _trim_whitespace(positions: list[int], gen_ids: Sequence[int], tokenizer) ->
     return positions[lo:hi]
 
 
+def _text_close_boundary(gen_ids: list[int], start: int, end: int, tokenizer) -> tuple[int | None, int | None]:
+    """For a multi-token </think>: (index of the first token touching the tag, index of the
+    first token after the tag), found by binary search over decoded prefixes (O(log n)
+    decodes). Reasoning = tokens before the first index (a token that merges reasoning text
+    with "</", e.g. ".</", is dropped from the reasoning); answer = tokens from the second."""
+    dec = lambda k: tokenizer.decode(gen_ids[start:k], skip_special_tokens=False)  # noqa: E731
+    full = dec(end)
+    c0 = full.find(THINK_CLOSE)
+    if c0 < 0:
+        return None, None
+    lo, hi = start + 1, end                 # smallest k whose prefix contains the whole tag
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if THINK_CLOSE in dec(mid):
+            hi = mid
+        else:
+            lo = mid + 1
+    after = lo
+    lo, hi = start, after                   # largest j whose prefix ends at or before the tag start
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if len(dec(mid)) <= c0:
+            lo = mid
+        else:
+            hi = mid - 1
+    return lo, after
+
+
 def split_generation(gen_ids: Sequence[int], tokenizer, info: TemplateInfo) -> Split:
     """Locate reasoning and final-answer tokens inside a thinking-mode generation.
 
@@ -161,11 +189,16 @@ def split_generation(gen_ids: Sequence[int], tokenizer, info: TemplateInfo) -> S
     if info.think_open_id is not None and info.think_open_id in gen_ids[:end]:
         start = gen_ids.index(info.think_open_id) + 1
     close = None
+    answer_from = None
     if info.think_close_id is not None:
         for i in range(start, end):
             if gen_ids[i] == info.think_close_id:
                 close = i
                 break
+    elif info.thinking:
+        # multi-token tags (e.g. OLMo 3: "</", "think", ">" with context-dependent merges such as
+        # ".</" or ">\n\n"): locate "</think>" in the decoded text and map it back to tokens
+        close, answer_from = _text_close_boundary(gen_ids, start, end, tokenizer)
     if close is None:
         if not info.thinking and (info.think_open_id is None or info.think_open_id not in gen_ids[:end]):
             # thinking OFF (prompt already closed an empty <think></think>): everything is answer
@@ -176,7 +209,7 @@ def split_generation(gen_ids: Sequence[int], tokenizer, info: TemplateInfo) -> S
         return Split(reasoning, [], False, False, n)
     reasoning = [i for i in range(start, close) if gen_ids[i] not in special]
     reasoning = _trim_whitespace(reasoning, gen_ids, tokenizer)
-    answer = [i for i in range(close + 1, end) if gen_ids[i] not in special]
+    answer = [i for i in range(close + 1 if answer_from is None else answer_from, end) if gen_ids[i] not in special]
     answer = _trim_whitespace(answer, gen_ids, tokenizer)
     return Split(reasoning, answer, True, len(answer) > 0, n)
 

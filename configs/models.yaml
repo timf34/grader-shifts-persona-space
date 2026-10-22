@@ -38,3 +38,50 @@ models:
     chat_template_kwargs: {reasoning_effort: medium}
     vllm_kwargs:
       limit_mm_per_prompt: {image: 0, video: 0}
+
+  # OLMo RL-stage comparison (configs/experiment_olmo_rl.yaml). One RL trajectory: Olmo-3.1-32B-Think
+  # is RLVR (Dolci-Think-RL) started from Olmo-3-32B-Think-DPO (its model card's base_model).
+  # Olmo3ForCausalLM, 64 decoder blocks, hidden 5120, 40 heads / 8 KV heads. Revisions pinned
+  # 2026-10-22 from branch heads. <think> / </think> are NOT single tokens in this tokenizer
+  # (templates.split_generation finds </think> in the decoded text). The DPO repo's template
+  # differs from the RL repo's only in the default system prompt used when there is no system
+  # message; all three render prompts with the FINAL checkpoint's tokenizer/template so the
+  # default-Assistant control is identical across checkpoints.
+  olmo3-32b-dpo:
+    hf_id: allenai/Olmo-3-32B-Think-DPO
+    revision: 97604023f2602a7dfe6d31b1fc229985e0002022            # main
+    tokenizer_hf_id: allenai/Olmo-3.1-32B-Think
+    tokenizer_revision: 97ade57a9cc55ed48bcd76be4b7a3b6fee61b80d
+    n_layers: 64
+    hidden_size: 5120
+    tensor_parallel_size: 1
+    gpu_memory_utilization: 0.90
+    max_num_seqs: 256
+    chat_template_kwargs: {}
+    vllm_kwargs: {}
+
+  olmo31-32b-rl100:
+    hf_id: allenai/Olmo-3.1-32B-Think
+    revision: e7b80281ff56aa55231daae1d2d69f0b06f45492            # branch step_0100 (~4% of the RL run)
+    tokenizer_hf_id: allenai/Olmo-3.1-32B-Think
+    tokenizer_revision: 97ade57a9cc55ed48bcd76be4b7a3b6fee61b80d
+    n_layers: 64
+    hidden_size: 5120
+    tensor_parallel_size: 1
+    gpu_memory_utilization: 0.90
+    max_num_seqs: 256
+    chat_template_kwargs: {}
+    vllm_kwargs: {}
+
+  olmo31-32b-final:
+    hf_id: allenai/Olmo-3.1-32B-Think
+    revision: 97ade57a9cc55ed48bcd76be4b7a3b6fee61b80d            # main (end of the RL run, >= step 2300)
+    tokenizer_hf_id: allenai/Olmo-3.1-32B-Think
+    tokenizer_revision: 97ade57a9cc55ed48bcd76be4b7a3b6fee61b80d
+    n_layers: 64
+    hidden_size: 5120
+    tensor_parallel_size: 1
+    gpu_memory_utilization: 0.90
+    max_num_seqs: 256
+    chat_template_kwargs: {}
+    vllm_kwargs: {}

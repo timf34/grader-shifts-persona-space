@@ -67,7 +67,7 @@ def load_hf_model(spec: ModelSpec, dtype: str = "bfloat16", device_map: str | di
         if missing:
             raise RuntimeError(f"decoder weights missing after fallback: {missing[:5]}")
     model.eval()
-    tok = AutoTokenizer.from_pretrained(spec.hf_id, revision=spec.tokenizer_revision or spec.revision,
+    tok = AutoTokenizer.from_pretrained(spec.tokenizer_id, revision=spec.tokenizer_revision or spec.revision,
                                         trust_remote_code=spec.trust_remote_code)
     tc = text_config(model.config)
     if spec.n_layers is not None and tc.num_hidden_layers != spec.n_layers:

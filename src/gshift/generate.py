@@ -37,7 +37,7 @@ def config_identity(spec: ModelSpec, exp: dict[str, Any]) -> tuple[str, dict[str
     gen = exp["generation"]
     ident = {
         "model": spec.hf_id, "revision": spec.revision,
-        "tokenizer_revision": spec.tokenizer_revision or spec.revision,
+        "tokenizer_revision": spec.tokenizer_revision or spec.revision, "tokenizer_id": spec.tokenizer_id,
         "chat_template_kwargs": spec.chat_template_kwargs,
         "generation": {k: gen.get(k) for k in SAMPLING_KEYS},
         "design_version": exp["design_version"], "placement": exp.get("placement"),
@@ -56,7 +56,7 @@ def config_identity(spec: ModelSpec, exp: dict[str, Any]) -> tuple[str, dict[str
 def load_tokenizer(spec: ModelSpec):
     from transformers import AutoTokenizer
 
-    return AutoTokenizer.from_pretrained(spec.hf_id, revision=spec.tokenizer_revision or spec.revision,
+    return AutoTokenizer.from_pretrained(spec.tokenizer_id, revision=spec.tokenizer_revision or spec.revision,
                                          trust_remote_code=spec.trust_remote_code)
 
 
@@ -64,7 +64,7 @@ def build_llm(spec: ModelSpec, gen_cfg: dict[str, Any], seed: int = 0):
     from vllm import LLM
 
     kwargs = dict(
-        model=spec.hf_id, revision=spec.revision,
+        model=spec.hf_id, revision=spec.revision, tokenizer=spec.tokenizer_id,
         tokenizer_revision=spec.tokenizer_revision or spec.revision,
         tensor_parallel_size=spec.tensor_parallel_size,
         gpu_memory_utilization=spec.gpu_memory_utilization,
