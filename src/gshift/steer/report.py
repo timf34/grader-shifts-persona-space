@@ -50,8 +50,8 @@ def per_sample_table(gen_root: Path, judge_path: Path | None, trait_judge_path: 
     adh = {(r["condition"], r["id"]): r for r in read_jsonl(adherence_path)} if adherence_path and adherence_path.exists() else {}
     agj = {(r["id"], r["condition"]): r for r in read_jsonl(agentic_path)} if agentic_path and agentic_path.exists() else {}
     if judge_path is not None and judge_path.exists():
-        for r in read_jsonl(judge_path):
-            judged[(r["id"], r["condition"])] = r
+        for r in read_jsonl(judge_path):   # sorh and sorh_descored share ids and conditions
+            judged[(r.get("benchmark", "sorh"), r["id"], r["condition"])] = r
     if trait_judge_path is not None and trait_judge_path.exists():
         for r in read_jsonl(trait_judge_path):
             tjudged[(r["id"], r["condition"])] = r
@@ -67,7 +67,7 @@ def per_sample_table(gen_root: Path, judge_path: Path | None, trait_judge_path: 
                     row["correct"] = float(bool(c))          # missing answer counts as wrong
                     row["correct_answered"] = float(bool(c)) if r.get("has_answer") else np.nan
                 if r["benchmark"].startswith("sorh"):
-                    j = judged.get((r["id"], r["condition"]), {})
+                    j = judged.get((r["benchmark"], r["id"], r["condition"]), {})
                     for k in ("metric", "quality", "gap"):
                         row[k] = j.get(k) if j.get(k) is not None else np.nan
                     row["unparsed"] = float(bool(j.get("unparsed")))

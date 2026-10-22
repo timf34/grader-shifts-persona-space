@@ -91,11 +91,11 @@ async def _run(items: list[dict], cfg: dict, out_path: Path) -> None:
 def judge_sorh(gen_files: list[Path], out_path: Path, cfg: dict[str, Any]) -> int:
     if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENROUTER_API_KEY")):
         raise RuntimeError("set ANTHROPIC_API_KEY or OPENROUTER_API_KEY (put it in .env)")
-    done = {(r["id"], r["condition"]) for r in read_jsonl(out_path) if not r.get("unparsed")}
+    done = {(r.get("benchmark"), r["id"], r["condition"]) for r in read_jsonl(out_path) if not r.get("unparsed")}
     items, no_answer = [], []
     for f in gen_files:
         for r in read_jsonl(f):
-            if (r["id"], r["condition"]) in done:
+            if (r["benchmark"], r["id"], r["condition"]) in done:
                 continue
             base = {"id": r["id"], "condition": r["condition"], "benchmark": r["benchmark"]}
             if not r.get("has_answer") or not r.get("answer_text", "").strip():

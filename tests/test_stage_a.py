@@ -175,3 +175,20 @@ def test_balanced_plan_keeps_dependents_with_source():
         assert set(p.get("t2", [])) <= set(p.get("a", []))                      # turn 2 with its turn 1
     loads = [sum(sizes[b] * len(cs) for b, cs in p.items()) for p in pl]
     assert max(loads) - min(loads) <= 150
+
+
+def test_sorh_and_descored_judgements_do_not_collide(tmp_path):
+    from gshift.steer.report import per_sample_table
+
+    gen = tmp_path / "gen"
+    base = {"has_answer": True, "answer_text": "x", "reasoning_text": "", "gen_ids": [1], "truncated": False,
+            "direction": None, "signed_strength": 0.0, "meta": {"user": "u", "user_descored": "d", "cat": "c"}}
+    for b in ("sorh", "sorh_descored"):
+        (gen / b).mkdir(parents=True)
+        (gen / b / "none.jsonl").write_text(json.dumps({**base, "id": "srh0", "benchmark": b, "condition": "none"}) + "\n")
+    j = [{"id": "srh0", "condition": "none", "benchmark": "sorh", "metric": 80.0, "quality": 50.0, "gap": 30.0},
+         {"id": "srh0", "condition": "none", "benchmark": "sorh_descored", "quality": 60.0}]
+    (tmp_path / "j.jsonl").write_text("\n".join(json.dumps(r) for r in j) + "\n")
+    df = per_sample_table(gen, tmp_path / "j.jsonl")
+    assert df[df.benchmark == "sorh"]["gap"].iloc[0] == 30.0
+    assert df[df.benchmark == "sorh_descored"]["quality"].iloc[0] == 60.0
