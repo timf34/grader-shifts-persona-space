@@ -22,7 +22,7 @@ from typing import Any, Sequence
 
 import numpy as np
 
-from .templates import TemplateInfo, answer_text, split_generation
+from .templates import THINK_CLOSE, THINK_OPEN, TemplateInfo, answer_text, split_generation
 
 
 # ---------------------------------------------------------------------------
@@ -50,7 +50,11 @@ def check_spans(rows: list[dict], tokenizer, info: TemplateInfo, max_examples: i
         got_a = [sp.answer[0], sp.answer[-1] + 1] if sp.answer else None
         if stored_a != got_a or bool(r.get("has_answer")) != sp.has_answer:
             flag(hard, "stored_span_differs_from_resplit", rid)
-        n_open, n_close = g.count(info.think_open_id), g.count(info.think_close_id)
+        if info.think_close_id is None:     # multi-token tags (OLMo 3): count them in the decoded text
+            txt = tokenizer.decode(g, skip_special_tokens=False)
+            n_open, n_close = txt.count(THINK_OPEN), txt.count(THINK_CLOSE)
+        else:
+            n_open, n_close = g.count(info.think_open_id), g.count(info.think_close_id)
         if info.thinking:
             if info.prompt_opens_think and n_open:
                 flag(soft, "model_emitted_extra_think_open", rid)

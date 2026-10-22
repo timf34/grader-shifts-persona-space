@@ -135,8 +135,10 @@ def run_generation(spec: ModelSpec, requests: list[Request], exp: dict[str, Any]
         **(extra_meta or {})})
     if not todo:
         return 0
-    if info.think_close_id is None:
-        raise RuntimeError("tokenizer has no single </think> token: cannot split reasoning from answer")
+    if info.think_close_id is None and enable_thinking:
+        # multi-token tags (e.g. OLMo 3): templates.split_generation locates </think> in the
+        # decoded text instead of by token id (tests/test_olmo.py)
+        print("[generate] </think> is not a single token: reasoning/answer split by decoded text", flush=True)
 
     from vllm.inputs import TokensPrompt
 
