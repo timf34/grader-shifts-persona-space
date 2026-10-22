@@ -119,6 +119,11 @@ def replay_check(model, rows: list[dict], top_k: int, min_frac: float = 0.99, ma
     the first `max_gen` generated tokens, which is still an exact prefix). Every token vLLM
     sampled with top-k sampling must sit inside HF's top-k at its position; the control
     re-aligns targets one position late."""
+    sampled_top_k = top_k
+    if top_k is None or int(top_k) <= 0:
+        # sampling without top-k (e.g. OLMo: top_k -1): every vocabulary token was eligible, so
+        # check membership in a fixed top-50 instead (T 0.6 / top_p 0.95 samples sit far inside it)
+        top_k = 50
     import torch
 
     dev = next(model.parameters()).device
@@ -141,7 +146,7 @@ def replay_check(model, rows: list[dict], top_k: int, min_frac: float = 0.99, ma
                     "max_rank": int(rk.max())})
     frac = in_k / max(n_tok, 1)
     ctrl_frac = ctrl_in_k / max(n_tok - len(per), 1)
-    return {"n_records": len(per), "n_tokens": n_tok, "top_k": top_k, "frac_in_top_k": frac,
+    return {"n_records": len(per), "n_tokens": n_tok, "top_k": top_k, "sampled_top_k": sampled_top_k, "frac_in_top_k": frac,
             "control_off_by_one_frac_in_top_k": ctrl_frac, "mean_token_logprob": float(np.mean(lp)) if lp else None,
             "worst_records": sorted(per, key=lambda x: x["frac_in_top_k"])[:5],
             "ok": bool(per) and frac >= min_frac and ctrl_frac < frac - 0.05}
