@@ -116,6 +116,12 @@ def test_steering_convergence_detects_planted_contraction(tmp_path, monkeypatch)
     e = out["original_L48"]
     assert np.isclose(e["separation_ratio"], 0.6, atol=0.02)
     assert np.isclose(e["beta_crossfit"], -0.4, atol=0.05)
+    assert e["beta_ci95"][0] <= e["beta_crossfit"] <= e["beta_ci95"][1] and len(e["beta_boot"]) == 500
+    # paired comparison against a 'random' direction that only shifts (no contraction)
+    rnd = ac.steering_convergence("m", prompts, base, base + 1.0, [36, 48], [48], k=k)
+    vs = ac.convergence_vs_random({"g_+": {"convergence": out}, "random0_+": {"convergence": rnd}})
+    d = vs["g_+"]["random0"]["original_L48"]
+    assert d["beta_minus_random"] < -0.3 and d["ci95"][1] < 0
 
 
 @pytest.mark.parametrize("model", ["qwen3.8-27b", "qwen3.6-27b"])
@@ -125,3 +131,47 @@ def test_stage_a_steering_set_builds(model):
         pytest.skip("steering set not built locally")
     man = json.loads(vj.read_text())
     assert {"ours_pre", "eval_only", "crit_only", "betley_matched"} <= set(man["directions"])
+
+
+def test_report_rows_for_adherence_and_agentic(tmp_path):
+    from gshift.steer.report import paired_effects, per_sample_table
+
+    gen = tmp_path / "gen"
+    (gen / "adherence").mkdir(parents=True)
+    (gen / "agentic").mkdir(parents=True)
+    base = {"has_answer": True, "answer_text": "x", "reasoning_text": "", "gen_ids": [1], "truncated": False}
+    adh, ag = [], []
+    for cond, sgn in (("none", 0.0), ("ours_pre_+0.3", 0.3)):
+        rows = []
+        for i in range(6):
+            rows.append({**base, "id": f"a{i}", "benchmark": "adherence", "condition": cond, "direction": None if cond == "none" else "ours_pre",
+                         "signed_strength": sgn, "meta": {"group": "checkable" if i % 2 else "original"}})
+            adh.append({"id": f"a{i}", "condition": f"adherence|{cond}", "question_id": "chk_x" if i % 2 else "orig_x",
+                        "score": 3 if cond == "none" else 1})
+        (gen / "adherence" / f"{cond}.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+        rows = [{**base, "id": f"m{i}", "benchmark": "agentic", "condition": cond, "direction": None if cond == "none" else "ours_pre",
+                 "signed_strength": sgn, "meta": {"scenario": "murder"}} for i in range(4)]
+        ag += [{"id": f"m{i}", "condition": cond, "harmful": cond != "none", "classifier_verdict": cond != "none"} for i in range(4)]
+        (gen / "agentic" / f"{cond}.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    (tmp_path / "adh.jsonl").write_text("\n".join(json.dumps(r) for r in adh) + "\n")
+    (tmp_path / "ag.jsonl").write_text("\n".join(json.dumps(r) for r in ag) + "\n")
+    df = per_sample_table(gen, None, None, tmp_path / "adh.jsonl", tmp_path / "ag.jsonl")
+    assert set(df["benchmark"]) == {"adherence:checkable", "adherence:original", "agentic:murder"}
+    eff = paired_effects(df, n_boot=50)
+    e = eff[(eff.benchmark == "adherence:checkable") & (eff.metric == "adherence") & (eff.condition == "ours_pre_+0.3")]
+    assert np.isclose(e["diff"].iloc[0], -2.0)
+    h = eff[(eff.benchmark == "agentic:murder") & (eff.metric == "harmful") & (eff.condition == "ours_pre_+0.3")]
+    assert np.isclose(h["diff"].iloc[0], 1.0)
+
+
+def test_balanced_plan_keeps_dependents_with_source():
+    g = _gen_module()
+    jobs = {"a": ["none", "x_+0.3", "x_-0.3"], "b": ["none", "x_+0.3"], "t2": ["x_+0.3", "x_-0.3"]}
+    sizes = {"a": 100, "b": 50, "t2": 100}
+    pl = g.balanced_plan(jobs, sizes, {"t2": "a"}, 2)
+    got = sorted((b, c) for p in pl for b, cs in p.items() for c in cs)
+    assert got == sorted((b, c) for b, cs in jobs.items() for c in cs)          # every job exactly once
+    for p in pl:
+        assert set(p.get("t2", [])) <= set(p.get("a", []))                      # turn 2 with its turn 1
+    loads = [sum(sizes[b] * len(cs) for b, cs in p.items()) for p in pl]
+    assert max(loads) - min(loads) <= 150

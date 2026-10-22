@@ -68,8 +68,13 @@ generation:
   base_seed: 4321
 
 judges:
-  sorh_model: claude-sonnet-5
-  agentic_model: claude-sonnet-4-6   # Betley et al.'s agentic grader (their run/sweep/regrade scripts)
+  # Cheap judges for the full set (decided 2026-10-22: ~$20 instead of ~$250-480), calibrated
+  # against Betley et al.'s judges on a random subset (scripts/17_judge_calibration.py).
+  sorh_model: anthropic/claude-haiku-5.5
+  agentic_model: claude-haiku-5-5
+  sorh_calibration_model: claude-sonnet-5             # Betley et al.'s SoRH judge setting in configs/steering.yaml
+  agentic_calibration_model: claude-sonnet-4-6        # Betley et al.'s agentic grader (their run/sweep/regrade scripts)
+  calibration_n: 300
   agentic_max_tokens: 4096
   max_tokens: 1024
   max_attempts: 4

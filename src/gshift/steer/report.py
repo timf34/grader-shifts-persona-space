@@ -27,16 +27,28 @@ PRIMARY = {
     "truthfulqa": ["correct", "unparsed", "no_answer", "refusal", "n_answer_tokens", "n_reasoning_tokens"],
 }
 TRAIT_METRICS = ["trait_score", "judge_refusal", "no_answer", "n_answer_tokens"]
+# stage A: persona adherence (Q1 judge, 0-3; fully = score 3) and agentic misalignment
+# (benchmark "agentic:<scenario>"; harmful = judge yes AND the reference text check)
+for _b in ("adherence", "adherence_graded"):
+    PRIMARY[_b] = ["adherence", "fully", "no_answer", "truncated", "n_answer_tokens", "n_reasoning_tokens"]
+AGENTIC_METRICS = ["harmful", "classifier_yes", "no_answer", "truncated", "n_answer_tokens", "n_reasoning_tokens"]
 
 
 def metrics_for(bench: str) -> list[str]:
     """Trait rows are split per trait (benchmark "trait:<trait>"): traits are not pooled."""
+    if bench.startswith("agentic:"):
+        return AGENTIC_METRICS
+    if bench.split(":")[0] in ("adherence", "adherence_graded"):
+        return PRIMARY[bench.split(":")[0]]
     return TRAIT_METRICS if bench.startswith("trait:") else PRIMARY.get(bench, [])
 
 
-def per_sample_table(gen_root: Path, judge_path: Path | None, trait_judge_path: Path | None = None) -> pd.DataFrame:
+def per_sample_table(gen_root: Path, judge_path: Path | None, trait_judge_path: Path | None = None,
+                     adherence_path: Path | None = None, agentic_path: Path | None = None) -> pd.DataFrame:
     rows = []
     judged, tjudged = {}, {}
+    adh = {(r["condition"], r["id"]): r for r in read_jsonl(adherence_path)} if adherence_path and adherence_path.exists() else {}
+    agj = {(r["id"], r["condition"]): r for r in read_jsonl(agentic_path)} if agentic_path and agentic_path.exists() else {}
     if judge_path is not None and judge_path.exists():
         for r in read_jsonl(judge_path):
             judged[(r["id"], r["condition"])] = r
@@ -63,6 +75,20 @@ def per_sample_table(gen_root: Path, judge_path: Path | None, trait_judge_path: 
                     sc = truthfulqa_score_record(r)
                     row["correct"] = float(sc["correct"])
                     row["unparsed"] = float(sc["unparsed"])
+                if r["benchmark"] in ("adherence", "adherence_graded"):
+                    j = adh.get((f"{r['benchmark']}|{r['condition']}", r["id"]), {})
+                    sc = j.get("score")
+                    row["adherence"] = float(sc) if sc is not None else np.nan
+                    row["fully"] = float(sc == 3) if sc is not None else np.nan
+                    row["truncated"] = float(bool(r.get("truncated")))
+                    row["benchmark"] = f"{r['benchmark']}:{r['meta'].get('group')}"   # never pooled across groups
+                if r["benchmark"] == "agentic":
+                    j = agj.get((r["id"], r["condition"]), {})
+                    row["benchmark"] = f"agentic:{r['meta']['scenario']}"
+                    row["harmful"] = float(j["harmful"]) if j.get("harmful") is not None else np.nan
+                    v = j.get("classifier_verdict")
+                    row["classifier_yes"] = float(v) if isinstance(v, bool) else np.nan
+                    row["truncated"] = float(bool(r.get("truncated")))
                 if r["benchmark"] == "trait_openended":
                     j = tjudged.get((r["id"], r["condition"]), {})
                     row["benchmark"] = f"trait:{r['meta']['trait']}"
@@ -111,7 +137,8 @@ def random_band(eff: pd.DataFrame) -> pd.DataFrame:
 
 
 def behaviour_summary(model_key: str, steer_dir: Path) -> dict[str, Any]:
-    df = per_sample_table(steer_dir / "gen", steer_dir / "sorh_judgements.jsonl", steer_dir / "trait_judgements.jsonl")
+    df = per_sample_table(steer_dir / "gen", steer_dir / "sorh_judgements.jsonl", steer_dir / "trait_judgements.jsonl",
+                          steer_dir / "adherence_judgements.jsonl", steer_dir / "agentic_judgements.jsonl")
     df = df[df["benchmark"] != "persona"]
     (steer_dir / "tables").mkdir(exist_ok=True)
     df.to_csv(steer_dir / "tables" / "per_sample.csv", index=False)

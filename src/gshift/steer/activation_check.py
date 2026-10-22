@@ -56,19 +56,22 @@ def run_activation_check(model, tokenizer, spec, prompts, manifest: dict, vector
             delta = (st - base).mean(0)
             res = {"injected_check_cos": cos(delta[layers.index(L)], sign * vectors[d])}
             res["convergence"] = steering_convergence(spec.key, prompts, base, st, layers, downstream)
+            if not res["convergence"]:
+                res.pop("convergence")
             for Lx in downstream:
                 if nat_pre[Lx] is not None:
                     res[f"cos_natural_L{Lx}"] = cos(delta[layers.index(Lx)], nat_pre[Lx])
                     res[f"norm_ratio_natural_L{Lx}"] = float(np.linalg.norm(delta[layers.index(Lx)])
                                                              / np.linalg.norm(nat_pre[Lx]))
             out["pre"][f"{d}_{'+' if sign > 0 else '-'}"] = res
+    out["convergence_vs_random"] = convergence_vs_random(out["pre"])
     if gen_dir is not None and gen_dir.exists():
         out["resp"] = _response_check(ex, model, spec, gen_dir, manifest, vectors, strength, layers, downstream)
     return out
 
 
 def steering_convergence(model_key: str, prompts, base: np.ndarray, st: np.ndarray, layers: list[int],
-                         downstream: list[int], k: int = 10) -> dict[str, Any]:
+                         downstream: list[int], k: int = 10, n_boot: int = 500, seed: int = 0) -> dict[str, Any]:
     """Does a CONSTANT vector injected at L make personas converge further downstream?
 
     At L the injected vector moves every persona equally (separation ratio 1, slope 0 by
@@ -104,14 +107,47 @@ def steering_convergence(model_key: str, prompts, base: np.ndarray, st: np.ndarr
             Xb = means(base, set(uq))
             Xs = means(st, set(uq))
             spread = lambda X: float(np.sqrt(((X - X.mean(0)) ** 2).sum(1).mean()))  # noqa: E731
-            betas = []
-            for h1, h2 in ((0, 1), (1, 0)):
-                x = means(base, halves[h1]) @ V.T
-                dlt = (means(st, halves[h2]) - means(base, halves[h2])) @ V.T
-                xc, dc = x - x.mean(0), dlt - dlt.mean(0)
-                betas.append(float((xc * dc).sum() / (xc * xc).sum()))
+            xs = [means(base, halves[h]) @ V.T for h in (0, 1)]
+            ds = [(means(st, halves[h]) - means(base, halves[h])) @ V.T for h in (0, 1)]
+
+            def beta(idx):
+                b = []
+                for h1, h2 in ((0, 1), (1, 0)):
+                    x, dlt = xs[h1][idx], ds[h2][idx]
+                    xc, dc = x - x.mean(0), dlt - dlt.mean(0)
+                    b.append(float((xc * dc).sum() / (xc * xc).sum()))
+                return float(np.mean(b))
+
+            # role bootstrap with a FIXED seed: every direction gets the same resamples, so
+            # differences between directions (e.g. vs random) can be bootstrapped pairwise
+            rng = np.random.default_rng(seed)
+            boots = [beta(rng.integers(0, len(rr), len(rr))) for _ in range(n_boot)]
             out[f"{g}_L{Lx}"] = {"n_roles": len(rr), "separation_ratio": spread(Xs) / spread(Xb),
-                                 "beta_crossfit": float(np.mean(betas))}
+                                 "beta_crossfit": beta(np.arange(len(rr))),
+                                 "beta_ci95": np.percentile(boots, [2.5, 97.5]).tolist(),
+                                 "beta_boot": [round(b, 5) for b in boots]}
+    return out
+
+
+def convergence_vs_random(pre: dict[str, Any]) -> dict[str, Any]:
+    """beta(direction) - beta(random, same sign) per cell, with the paired role-bootstrap CI."""
+    out: dict[str, Any] = {}
+    for key, v in pre.items():
+        d, sign = key.rsplit("_", 1)
+        if d.startswith("random") or "convergence" not in v:
+            continue
+        for rkey, rv in pre.items():
+            rd, rsign = rkey.rsplit("_", 1)
+            if not rd.startswith("random") or rsign != sign or "convergence" not in rv:
+                continue
+            for cell, e in v["convergence"].items():
+                r = rv["convergence"].get(cell)
+                if not r or "beta_boot" not in e or "beta_boot" not in r:
+                    continue
+                diff = np.array(e["beta_boot"]) - np.array(r["beta_boot"])
+                out.setdefault(key, {}).setdefault(rd, {})[cell] = {
+                    "beta_minus_random": e["beta_crossfit"] - r["beta_crossfit"],
+                    "ci95": np.percentile(diff, [2.5, 97.5]).tolist()}
     return out
 
 

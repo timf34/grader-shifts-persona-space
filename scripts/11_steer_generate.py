@@ -73,6 +73,31 @@ def benchmark_conditions(cfg: dict, man: dict, strengths: list[float], bench: st
     return out
 
 
+def balanced_plan(jobs: dict[str, list[str]], sizes: dict[str, int], deps: dict[str, str], shards: int) -> list[dict[str, list[str]]]:
+    """Assign (benchmark, condition) jobs to shards, greedy by prompt count (largest first,
+    deterministic tie-break). A dependent benchmark's job travels with its source job
+    (same condition), since it is built from that job's output on the same pod."""
+    units: dict[tuple[str, str], list[str]] = {}
+    for b, conds in jobs.items():
+        if b in deps:
+            continue
+        for c in conds:
+            units[(b, c)] = [b]
+    for b, src in deps.items():
+        for c in jobs.get(b, []):
+            if (src, c) in units:
+                units[(src, c)].append(b)
+    weight = {u: sum(sizes[b] for b in bs) for u, bs in units.items()}
+    load = [0] * shards
+    out: list[dict[str, list[str]]] = [{} for _ in range(shards)]
+    for u in sorted(units, key=lambda u: (-weight[u], u)):
+        k = min(range(shards), key=lambda i: (load[i], i))
+        load[k] += weight[u]
+        for b in units[u]:
+            out[k].setdefault(b, []).append(u[1])
+    return out
+
+
 def shard_of(cond: str, all_conds: list[str], shards: int) -> int:
     """Whole conditions go to one shard (round-robin over the plan's condition order)."""
     return all_conds.index(cond) % shards
@@ -132,12 +157,25 @@ def main():
         strengths = args.strengths or fixed or json.loads((sd / "calibration.json").read_text())["eval_strengths"]
         conds = eval_conditions(cfg, man, strengths)
         benches = args.benchmarks or list(cfg["evaluation"]["benchmarks"])
-        plan = {b: [c for c in benchmark_conditions(cfg, man, strengths, b) if shard_of(c, conds, args.shards) == args.shard]
-                for b in benches if b != "persona"}
+        bench_list = [b for b in benches if b != "persona"]
+        deps = {b: (cfg["evaluation"]["benchmarks"].get(b) or {}).get("depends_on") for b in bench_list}
+        deps = {b: d for b, d in deps.items() if d}
+        all_jobs = {b: benchmark_conditions(cfg, man, strengths, b) for b in bench_list}
+        if cfg["evaluation"].get("shard_by") == "jobs":     # stage B on: balanced by prompt count
+            sizes = {b: len(benchmark_prompts(deps.get(b, b), cfg, exp)) for b in bench_list}
+            plan = balanced_plan(all_jobs, sizes, deps, args.shards)[args.shard]
+        else:                                                 # stage A: whole conditions round-robin
+            plan = {b: [c for c in cs if shard_of(c, conds, args.shards) == args.shard] for b, cs in all_jobs.items()}
+            for b in list(plan):
+                if b in deps:
+                    plan[b] = [c for c in plan[b] if c in plan.get(deps[b], [])]
         write_json(sd / f"eval_plan_shard{args.shard}of{args.shards}.json",
                    {"strengths": strengths, "conditions": conds, "shard": args.shard, "shards": args.shards, "plan": plan})
         print(f"[eval] shard {args.shard}/{args.shards}: " + ", ".join(f"{b} {len(c)}" for b, c in plan.items()), flush=True)
-        jobs = [(b, c) for b, bconds in plan.items() for c in bconds]
+        bcfg = cfg["evaluation"]["benchmarks"]
+        dependent = {b for b in plan if (bcfg.get(b) or {}).get("depends_on")}
+        jobs = [(b, c) for b, bconds in plan.items() for c in bconds if b not in dependent]
+        later = [(b, c) for b, bconds in plan.items() for c in bconds if b in dependent]
         import threading
 
         local = threading.local()
@@ -146,7 +184,14 @@ def main():
             # one client per worker thread (an async client is bound to its event loop); several
             # conditions in flight keep the server's queue full through each batch's long tail
             b, c = job
-            prompts = benchmark_prompts(b, cfg, exp, natural_prefix(c, exp))
+            dep = (bcfg.get(b) or {}).get("depends_on")
+            if dep:   # e.g. turn 2 of a two-turn episode, built from this condition's turn-1 answers
+                from gshift.io import read_jsonl
+                from gshift.steer.proxy_panel import rulechange_turn2_prompts
+
+                prompts = rulechange_turn2_prompts(b, read_jsonl(sd / "gen" / dep / f"{c}.jsonl"), cfg)
+            else:
+                prompts = benchmark_prompts(b, cfg, exp, natural_prefix(c, exp))
             if args.limit:
                 prompts = prompts[: args.limit]
             if not hasattr(local, "tok"):    # fast tokenizers are not safe to share across threads
@@ -162,7 +207,9 @@ def main():
         with ThreadPoolExecutor(max_workers=args.parallel_conditions) as pool:
             for _ in pool.map(run_job, jobs):
                 pass
-        if "persona" in benches and args.shard == 0:
+            for _ in pool.map(run_job, later):     # after every turn-1 condition has finished
+                pass
+        if "persona" in benches and args.shard == 0 and (bcfg.get("persona") or {}).get("generate", True):
             ac = cfg["activation_check"]
             s_star = max(strengths)
             persona_dirs = list(ac["directions"]) + [f"random{k}" for k in range(int(ac.get("n_random", 0)))]

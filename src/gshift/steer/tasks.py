@@ -93,6 +93,14 @@ def benchmark_prompts(name: str, cfg: dict, exp: dict, prefix: str | None = None
         from .extra_benchmarks import trait_prompts
 
         return trait_prompts(cfg, prefix)
+    if name.startswith("choice_"):
+        from .persona_choice import choice_prompts
+
+        return choice_prompts(name, cfg, exp, prefix)
+    if name.startswith("proxy_") and not b.get("depends_on"):
+        from .proxy_panel import proxy_prompts
+
+        return proxy_prompts(name, cfg, exp, prefix)
     if name in ("adherence", "adherence_graded"):
         return adherence_prompts(name, b, exp, prefix)
     if name == "agentic":
@@ -101,8 +109,9 @@ def benchmark_prompts(name: str, cfg: dict, exp: dict, prefix: str | None = None
         return agentic_prompts(cfg, prefix)
     if name == "persona":
         # held-out roles x validation questions, prompt variant 0, baseline (no grading prefix)
+        splits = {"heldout"} if b.get("roles", "heldout") == "heldout" else {"heldout", "discovery"}
         reqs = [r for r in build_requests(exp, "main", include_default=False)
-                if r.role_split == "heldout" and r.question_split == "validation"
+                if r.role_split in splits and r.question_split == "validation"
                 and r.prompt_variant == 0 and r.condition == "baseline"]
         return [Prompt(r.id, name, [dict(m) for m in r.messages],
                        {"role": r.role, "question_id": r.question_id, "question": r.question}) for r in reqs]

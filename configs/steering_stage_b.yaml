@@ -1,0 +1,80 @@
+# Q2 stage B (2026-10-22): does grading change what personas DECIDE, and does the model follow
+# the GRADER over the user's objective? Written after stage A, before any stage B generation.
+#   * persona choice (src/gshift/steer/persona_choice.py): 6 decision-differing personas + default
+#     Assistant x 72 forced-choice items x {free prose, constrained} x {base, auto, human, neutral}.
+#     Steering: add the grading directions in the base context; subtract them in the auto context.
+#   * objective vs proxy (src/gshift/steer/proxy_panel.py): explicit user objective + an automated
+#     scoring rule that agrees with it, conflicts with it, or is reversed; plus a two-turn episode in
+#     which the scoring rule changes after the first answer (turn 2 depends on turn 1).
+#   * activation check: steering-induced convergence on ALL 100 roles, with role-bootstrap CIs.
+# Directions, location and scale as in configs/steering_stage_a.yaml (prompt-token directions).
+layer: 36
+
+directions:
+  ours_pre:   {source: analysis, group: pooled,   rep: pre, contrast: auto_minus_baseline}
+  auto_human: {source: analysis, group: original, rep: pre, contrast: auto_minus_human}
+  eval_only:  {source: analysis, group: checkable, rep: pre, contrast: evaluator_main,
+               orthogonal_to: [{group: checkable, rep: pre, contrast: criterion_main}]}
+  crit_only:  {source: analysis, group: checkable, rep: pre, contrast: criterion_main,
+               orthogonal_to: [{group: checkable, rep: pre, contrast: evaluator_main}]}
+random_directions: {n: 2, seed: 99}
+projections: {sources: [], ranks: []}
+
+calibration:                   # unused (fixed strengths); kept for the scripts
+  primary_direction: auto_human
+  strength_grid: [0.3]
+  min_answer_rate: 0.90
+  max_repetition_rate: 0.10
+  max_accuracy_drop: 0.15
+  aa_question_seed: 7
+  n_aa_questions: 24
+  gsm8k_file: data/gsm8k/calibration_train_subset.jsonl
+
+evaluation:
+  strengths: [0.3]
+  shard_by: jobs                  # balance (benchmark, condition) jobs across pods by prompt count
+  conditions: [none]
+  steered_directions: [auto_human, eval_only]
+  random_signs: [1, -1]
+  benchmarks:
+    # persona choice: add in the base context, subtract under automated grading, context-only otherwise
+    choice_free_base:          {samples: 2}
+    choice_constrained_base:   {samples: 2}
+    choice_free_auto:          {samples: 2, signs: [-1]}
+    choice_constrained_auto:   {samples: 2, signs: [-1]}
+    choice_free_human:         {samples: 2, directions: [], random: false}
+    choice_constrained_human:  {samples: 2, directions: [], random: false}
+    choice_free_neutral:       {samples: 2, directions: [], random: false}
+    choice_constrained_neutral: {samples: 2, directions: [], random: false}
+    # objective vs proxy
+    proxy_none:                {directions: [], random: false}
+    proxy_aligned:             {directions: [], random: false}
+    proxy_conflict:            {}
+    proxy_conflict_rev:        {}
+    # two-turn episode: turn 1 IS proxy_conflict (same prompts and seeds), so turn 2 is built from it
+    proxy_rulechange_t2:       {depends_on: proxy_conflict}
+    proxy_rulechange_t2ctrl:   {depends_on: proxy_conflict}
+    # activation check prompt set (no generation): all 100 roles x validation questions
+    persona:                   {roles: all, generate: false}
+
+generation:
+  temperature: 1.0
+  top_p: 0.95
+  top_k: 20
+  min_p: 0.0
+  presence_penalty: 0.0
+  max_tokens: 8192
+  max_model_len: 12288
+  base_seed: 4321
+
+judges:
+  sorh_model: anthropic/claude-haiku-5.5
+  proxy_quality_model: anthropic/claude-haiku-5.5
+  max_tokens: 1024
+  max_attempts: 4
+  concurrency: 32
+
+activation_check:
+  downstream_layers: [40, 48, 56]
+  directions: [ours_pre, auto_human, eval_only, crit_only]
+  n_random: 2

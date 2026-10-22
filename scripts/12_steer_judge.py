@@ -23,7 +23,7 @@ from gshift.steer.vectors import steering_dir
 def main():
     p = base_parser(__doc__)
     p.add_argument("--steering-config", default=str(ROOT / "configs" / "steering.yaml"))
-    p.add_argument("--only", choices=["sorh", "traits", "adherence", "agentic"], default=None)
+    p.add_argument("--only", choices=["sorh", "traits", "adherence", "agentic", "choice", "proxy"], default=None)
     args = p.parse_args()
     exp = experiment_for(args)
     cfg = load_yaml(args.steering_config)
@@ -42,6 +42,19 @@ def main():
             from gshift.steer.adherence import judge_adherence
 
             judge_adherence(files, sd / "adherence_judgements.jsonl", exp["judge"])
+    if args.only in (None, "choice"):
+        # prose persona expression on free-format persona-choice answers: the Q1 judge, unchanged
+        files = sorted(f for d in (sd / "gen").glob("choice_free_*") for f in d.glob("*.jsonl"))
+        if files:
+            from gshift.steer.persona_choice import judge_choice_adherence
+
+            judge_choice_adherence(files, sd / "choice_adherence_judgements.jsonl", exp["judge"])
+    if args.only in (None, "proxy"):
+        files = sorted(f for d in (sd / "gen").glob("proxy_*") for f in d.glob("*.jsonl"))
+        if files and cfg["judges"].get("proxy_quality_model"):
+            from gshift.steer.proxy_panel import judge_proxy_quality
+
+            judge_proxy_quality(files, sd / "proxy_quality_judgements.jsonl", cfg)
     if args.only in (None, "agentic"):
         files = sorted((sd / "gen" / "agentic").glob("*.jsonl"))
         if files:
