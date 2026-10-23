@@ -122,6 +122,11 @@ upload_logs() {
 upload() {  # upload <message> [scripts/upload_hf.py args; default --model $MODEL]
   local msg="$1"; shift
   [ -n "${HF_DATASET_REPO:-}" ] || { state "upload skipped (HF_DATASET_REPO unset): $msg"; return 0; }
+  # HF_PREFIX=<dir>: a side stage uploads to <dir>/<model>/ instead of <model>/, so it never
+  # replaces the main run's shared files (run_config/, betley_repro/)
+  if [ $# -eq 0 ] && [ -n "${HF_PREFIX:-}" ]; then
+    set -- --folder "${GSHIFT_OUTPUTS:-outputs}/$MODEL" --path-in-repo "$HF_PREFIX/$MODEL"
+  fi
   [ $# -gt 0 ] || set -- --model "$MODEL"
   if $PY -u scripts/upload_hf.py --message "$msg" "$@" >> "$LOGDIR/upload.log" 2>&1; then
     state "uploaded: $msg"

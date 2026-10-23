@@ -125,9 +125,33 @@ def condition_def(exp: dict[str, Any], cond: str) -> dict[str, Any]:
     """{evaluator, criterion} for a condition ('eval_awareness' = the follow-up statement)."""
     if cond == "eval_awareness":
         return {"evaluator": None, "criterion": "evaluation_awareness"}
+    sysc = (exp.get("system_conditions") or {}).get("conditions", {})
+    if cond in sysc:
+        return {k: v for k, v in sysc[cond].items() if k in ("evaluator", "criterion")}
     if cond not in exp["conditions"]:
         raise KeyError(f"unknown condition {cond!r}")
     return dict(exp["conditions"][cond])
+
+
+def is_system_condition(exp: dict[str, Any], cond: str) -> bool:
+    """A condition that REPLACES the persona system prompt (rl_episode stage) instead of
+    prefixing a statement to the user message."""
+    return cond in (exp.get("system_conditions") or {}).get("conditions", {})
+
+
+def system_condition_prompts(exp: dict[str, Any]) -> dict[tuple[str, str], str]:
+    """(role, condition) -> full system prompt, from the system_conditions file (prompt variant 0
+    only; every prompt contains the role's original instruction verbatim)."""
+    sc = exp["system_conditions"]
+    path = Path(sc["file"])
+    if not path.is_absolute():
+        path = REPO_ROOT / path
+    out = {}
+    for line in open(path):
+        r = json.loads(line)
+        for cond, d in sc["conditions"].items():
+            out[(r["role"], cond)] = r[d["field"]]
+    return out
 
 
 def wording_set_of(exp: dict[str, Any], wording_id: str) -> str:
@@ -143,6 +167,8 @@ def statement(exp: dict[str, Any], cond: str, wording_id: str | None) -> str | N
         return None
     if cond == "eval_awareness":
         return exp["followup_statement"]
+    if is_system_condition(exp, cond):
+        return None
     d = condition_def(exp, cond)
     ws = exp["wording_templates"][wording_set_of(exp, wording_id)][wording_id]
     return ws[f"{d['evaluator']}|{d['criterion']}"]

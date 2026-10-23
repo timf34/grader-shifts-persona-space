@@ -97,3 +97,25 @@ def test_olmo_steering_plan(monkeypatch):
     S = cfg["evaluation"]["strengths"]
     assert len(g.eval_conditions(cfg, man, S)) == 3 + 3 * 2 * 2 + 2 * 2 + 2 * 2   # + two final-sourced dirs at +-0.3
     assert all(c == "none" or "_-" in c for c in g.benchmark_conditions(cfg, man, S, "adherence_graded"))
+
+
+def test_rl_episode_stage():
+    """rl_episode: the persona instruction is embedded verbatim, the user message is the bare
+    question, seeds match the main baseline, and the main grid / config id are untouched."""
+    from gshift.design import role_instruction
+
+    exp = load_experiment(CFG)
+    reqs = build_requests(exp, "rl_episode")
+    assert len(reqs) == 50 * 60 * 2 and {r.condition for r in reqs} == {"rl_env", "rl_deploy"}
+    main = {r.id: r for r in build_requests(exp, "main")}
+    for r in reqs:
+        assert role_instruction(r.role, 0) in r.system_prompt and r.user_content == r.question
+        assert r.baseline_id in main and main[r.baseline_id].seed == r.seed
+    pair = {(r.role, r.question_id, r.condition): r.system_prompt for r in reqs}
+    assert all(pair[(ro, q, "rl_env")] != pair[(ro, q, "rl_deploy")] for ro, q, c in pair if c == "rl_env")
+    # the main grid is the one already generated: same requests as without the new block
+    exp0 = {k: v for k, v in exp.items() if k != "system_conditions"}
+    assert [r.id for r in build_requests(exp0, "main")] == list(main)
+    spec = get_model("olmo31-32b-final")
+    from gshift.generate import config_identity
+    assert config_identity(spec, exp)[0] == config_identity(spec, exp0)[0]

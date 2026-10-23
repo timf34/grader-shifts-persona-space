@@ -19,7 +19,8 @@ import hashlib
 from dataclasses import asdict, dataclass
 from typing import Any, Iterator
 
-from .config import condition_def, heldout_roles, load_questions, load_role, role_categories, statement
+from .config import (condition_def, heldout_roles, is_system_condition, load_questions, load_role, role_categories,
+                     statement, system_condition_prompts)
 
 
 @dataclass(frozen=True)
@@ -173,6 +174,8 @@ def iter_requests(exp: dict[str, Any], stage: str, roles: list[str] | None = Non
     if roles is not None:
         role_list = [x for x in role_list if x[0] in roles]
 
+    stage_conds = {c for g in ("original", "checkable") for c in _stage_conditions(exp, st, g)}
+    sys_prompts = system_condition_prompts(exp) if any(is_system_condition(exp, c) for c in stage_conds) else {}
     for role, cat, rsplit, variants in role_list:
         for pv in variants:
             system_prompt = role_instruction(role, pv)
@@ -188,9 +191,13 @@ def iter_requests(exp: dict[str, Any], stage: str, roles: list[str] | None = Non
                 for s in range(n_samples):
                     seed = unit_seed(int(gen["base_seed"]), role, pv, q["id"], s)
                     for cond in _stage_conditions(exp, st, q["group"]):
-                        for w in (["none"] if cond == "baseline" else wordings):
-                            text = statement(exp, cond, None if cond == "baseline" or w == "eval" else w)
-                            system, user = build_messages(system_prompt, q["text"], text, placement)
+                        sysc = is_system_condition(exp, cond)
+                        if sysc and rsplit == "control":
+                            continue        # the default Assistant has no persona prompt to embed
+                        for w in (["none"] if cond == "baseline" else (["sys"] if sysc else wordings)):
+                            text = None if sysc else statement(exp, cond, None if cond == "baseline" or w == "eval" else w)
+                            sp = sys_prompts[(role, cond)] if sysc else system_prompt
+                            system, user = build_messages(sp, q["text"], text, placement)
                             msgs = ([{"role": "system", "content": system}] if system else []) + [
                                 {"role": "user", "content": user}]
                             d = condition_def(exp, cond)
@@ -201,8 +208,8 @@ def iter_requests(exp: dict[str, Any], stage: str, roles: list[str] | None = Non
                                 role_split=rsplit, prompt_variant=pv, question_id=q["id"], question_group=q["group"],
                                 question_domain=q["domain"], question_family=q["family"], question_split=q["split"],
                                 condition=cond, evaluator=d["evaluator"], criterion=d["criterion"], wording_id=w,
-                                wording_set="none" if w == "none" else ("followup" if w == "eval" else wset),
-                                enable_thinking=thinking, sample=s, seed=seed, system_prompt=system_prompt or None,
+                                wording_set="none" if w == "none" else ("followup" if w == "eval" else ("system_prompt" if w == "sys" else wset)),
+                                enable_thinking=thinking, sample=s, seed=seed, system_prompt=sp or None,
                                 question=q["text"], prefix=text, user_content=user, messages=tuple(msgs),
                             )
 
