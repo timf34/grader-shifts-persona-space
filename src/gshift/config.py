@@ -21,6 +21,11 @@ def load_yaml(path: str | Path) -> dict[str, Any]:
 
 
 def load_experiment(path: str | Path | None = None) -> dict[str, Any]:
+    """configs/experiment.yaml unless a path is given or GSHIFT_EXPERIMENT names another
+    design (e.g. configs/experiment_olmo_rl.yaml for the OLMo RL-stage comparison)."""
+    env = os.environ.get("GSHIFT_EXPERIMENT")
+    if not path and env:
+        path = env if Path(env).is_absolute() else REPO_ROOT / env
     return load_yaml(path or CONFIG_DIR / "experiment.yaml")
 
 
@@ -39,6 +44,11 @@ class ModelSpec:
     chat_template_kwargs: dict[str, Any] = field(default_factory=dict)
     vllm_kwargs: dict[str, Any] = field(default_factory=dict)
     extra: dict[str, Any] = field(default_factory=dict)
+    tokenizer_hf_id: str | None = None   # tokenizer/chat template from another repo (default: hf_id)
+
+    @property
+    def tokenizer_id(self) -> str:
+        return self.tokenizer_hf_id or self.hf_id
 
 
 def load_models(path: str | Path | None = None) -> dict[str, ModelSpec]:

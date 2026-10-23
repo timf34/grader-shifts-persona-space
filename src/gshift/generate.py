@@ -37,7 +37,7 @@ def config_identity(spec: ModelSpec, exp: dict[str, Any]) -> tuple[str, dict[str
     gen = exp["generation"]
     ident = {
         "model": spec.hf_id, "revision": spec.revision,
-        "tokenizer_revision": spec.tokenizer_revision or spec.revision,
+        "tokenizer_revision": spec.tokenizer_revision or spec.revision, "tokenizer_id": spec.tokenizer_id,
         "chat_template_kwargs": spec.chat_template_kwargs,
         "generation": {k: gen.get(k) for k in SAMPLING_KEYS},
         "design_version": exp["design_version"], "placement": exp.get("placement"),
@@ -56,7 +56,7 @@ def config_identity(spec: ModelSpec, exp: dict[str, Any]) -> tuple[str, dict[str
 def load_tokenizer(spec: ModelSpec):
     from transformers import AutoTokenizer
 
-    return AutoTokenizer.from_pretrained(spec.hf_id, revision=spec.tokenizer_revision or spec.revision,
+    return AutoTokenizer.from_pretrained(spec.tokenizer_id, revision=spec.tokenizer_revision or spec.revision,
                                          trust_remote_code=spec.trust_remote_code)
 
 
@@ -64,7 +64,7 @@ def build_llm(spec: ModelSpec, gen_cfg: dict[str, Any], seed: int = 0):
     from vllm import LLM
 
     kwargs = dict(
-        model=spec.hf_id, revision=spec.revision,
+        model=spec.hf_id, revision=spec.revision, tokenizer=spec.tokenizer_id,
         tokenizer_revision=spec.tokenizer_revision or spec.revision,
         tensor_parallel_size=spec.tensor_parallel_size,
         gpu_memory_utilization=spec.gpu_memory_utilization,
@@ -135,8 +135,10 @@ def run_generation(spec: ModelSpec, requests: list[Request], exp: dict[str, Any]
         **(extra_meta or {})})
     if not todo:
         return 0
-    if info.think_close_id is None:
-        raise RuntimeError("tokenizer has no single </think> token: cannot split reasoning from answer")
+    if info.think_close_id is None and enable_thinking:
+        # multi-token tags (e.g. OLMo 3): templates.split_generation locates </think> in the
+        # decoded text instead of by token id (tests/test_olmo.py)
+        print("[generate] </think> is not a single token: reasoning/answer split by decoded text", flush=True)
 
     from vllm.inputs import TokensPrompt
 
