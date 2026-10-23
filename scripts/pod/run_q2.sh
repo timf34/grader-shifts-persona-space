@@ -43,8 +43,8 @@ if [ ! -d "outputs/$MODEL/analysis/vectors" ] && [ -n "${HF_DATASET_REPO:-}" ]; 
   step "fetch Q1 outputs from $HF_DATASET_REPO"
   $PY -u scripts/download_outputs.py --model "$MODEL" --what analysis betley_repro || finish 2
 fi
-# STEER_SOURCE_MODELS: models whose Q1 directions the steering config borrows (source_model)
-for SRC in ${STEER_SOURCE_MODELS:-}; do
+# STEER_SOURCE_MODELS (comma-separated): models whose Q1 directions the steering config borrows (source_model)
+for SRC in ${STEER_SOURCE_MODELS//,/ }; do
   [ "$SRC" = "$MODEL" ] && continue
   [ -d "outputs/$SRC/analysis/vectors" ] || $PY -u scripts/download_outputs.py --model "$SRC" --what analysis || finish 2
 done
