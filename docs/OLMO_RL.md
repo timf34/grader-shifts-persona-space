@@ -52,9 +52,9 @@ under `<model key>/`:
 - `analysis/summary.json`, `analysis/vectors/`, `analysis/tables/`: Q1 analysis (all layers and representations)
 - `analysis/figures_report/`: figures
 
-## First results (preliminary)
+## First results
 
-Layer 36, no confidence intervals yet. Each cell gives shift size / leave-one-persona-out cosine / spread ratio:
+Layer 36, point estimates. Each cell gives shift size / leave-one-persona-out cosine / spread ratio:
 - **Shift size:** the mean shift's norm relative to the typical activation norm.
 - **Leave-one-persona-out cosine:** how much the personas agree on the shift's direction.
 - **Spread ratio:** the spread of the personas under the condition relative to baseline. Values below 1 mean the personas converge.
@@ -69,16 +69,23 @@ Layer 36, no confidence intervals yet. Each cell gives shift size / leave-one-pe
 Role adherence change on checkable tasks under automated + correctness grading:
 −0.12 (DPO), −0.14 (step 100), −0.19 (final). The neutral-sentence control gives −0.00 to −0.04.
 
-**Reading so far:**
-- **The representation predates RL.** The grading shift at the prompt token is already large and shared across personas before RL, and changes little with it.
-- **RL strengthens its effect on behaviour.** RL mainly amplifies what grading does to the model's *answers*: the shift grows larger, personas agree more on its direction, and they converge more. Adherence also drops more.
-- **Step 100 looks like DPO** on almost every measure.
+## Confirmed results (with 95% CIs)
 
-Next steps:
-- Bootstrap CIs.
-- Intermediate RL steps (the run publishes 46).
-- Steering each checkpoint along the same direction, to test whether RL changes the direction's causal effect.
-- Persona-landscape structure: the Assistant axis and dimensionality.
+Full report: [`olmo_rl_compare/report.md`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/blob/main/olmo_rl_compare/report.md)
+(figures in `olmo_rl_compare/figures/`; code `scripts/olmo_rl_compare.py`). Layer 36, paired persona bootstrap; Δ = final − DPO.
+
+- **A little RL (step 100) changes nothing.** It matches DPO on every measure.
+- **The persona landscape keeps its shape.** Prompt-token distance matrices correlate 0.975 [0.94, 0.99] between DPO and final; spread, dimensionality and the default Assistant's neighbours (evaluator, advocate, scientist) are unchanged. Answer-token landscapes keep their arrangement (0.985) but spread out ~60%.
+- **Behaviour under grading changes.** On open-ended questions, "evaluated automatically" lowers role adherence only after RL: DPO +0.04, final −0.23 (difference −0.27 [−0.39, −0.15]). The length-matched neutral sentence has no effect; human grading moves the same way, about half as much.
+- **Answers get much shorter under automated grading:** 0.51× baseline length after RL vs 0.86× before.
+- **The answer-token grading shift grows ~3× and rotates, but it mostly tracks answer shortening** (r ≈ −0.75 across personas). Shorter answers leave less room for role-play, so part of the adherence drop may be length.
+- **The prompt-token grading direction barely changes:** ~8% larger, same direction (cos 0.98), slightly more persona convergence.
+
+**Reading:** RL does not create or reorganise the grader representation; it changes what the model does with it.
+
+## In progress: steering across checkpoints
+
+`configs/steering_olmo.yaml`: each checkpoint is steered along the **same** prompt-token grading directions, estimated on the DPO model (and, as a check, on the final model), at ±0.1/±0.3 × each model's mean residual norm, layer 36. Benchmarks: role adherence, School of Reward Hacks, agentic misalignment, against random directions. Question: does the direction only cause (bad) behaviour after RLVR?
 
 ## Reproduce
 
