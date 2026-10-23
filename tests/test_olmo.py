@@ -73,3 +73,27 @@ def test_neutral_length_matched(olmo_tok):
     n = lambda c: len(olmo_tok.encode(statement(exp, c, "w1"), add_special_tokens=False))  # noqa: E731
     assert abs(n("neutral") - n("auto")) <= 3
     assert abs(n("neutral_long") - n("auto_correct")) <= 3
+
+
+def test_olmo_steering_plan(monkeypatch):
+    """configs/steering_olmo.yaml: DPO-sourced directions, adherence over all 50 roles."""
+    import importlib.util
+
+    from gshift.config import load_yaml
+    from gshift.steer.tasks import benchmark_prompts
+
+    monkeypatch.setenv("GSHIFT_EXPERIMENT", "configs/experiment_olmo_rl.yaml")
+    exp = load_experiment()
+    cfg = load_yaml(REPO_ROOT / "configs" / "steering_olmo.yaml")
+    assert all(d.get("source_model") == "olmo3-32b-dpo" for d in cfg["directions"].values())
+    adh = benchmark_prompts("adherence", cfg, exp)
+    graded = benchmark_prompts("adherence_graded", cfg, exp)
+    assert len(adh) == len(graded) == 50 * 10 and all(p.meta["group"] == "checkable" for p in adh)
+    spec = importlib.util.spec_from_file_location("g", REPO_ROOT / "scripts" / "11_steer_generate.py")
+    g = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(g)
+    man = {"directions": {**{d: {"kind": "recovered"} for d in cfg["directions"]},
+                          "random0": {"kind": "random"}, "random1": {"kind": "random"}}}
+    S = cfg["evaluation"]["strengths"]
+    assert len(g.eval_conditions(cfg, man, S)) == 3 + 3 * 2 * 2 + 2 * 2
+    assert all(c == "none" or "_-" in c for c in g.benchmark_conditions(cfg, man, S, "adherence_graded"))

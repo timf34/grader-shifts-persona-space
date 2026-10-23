@@ -66,13 +66,17 @@ def build_steering_set(model_key: str, cfg: dict[str, Any]) -> dict[str, Any]:
         if d.get("models") and model_key not in d["models"]:
             continue
         if d["source"] == "analysis":
-            p = adir / f"{d['group']}_{d['rep']}_L{L}_{d['contrast']}.npy"
+            # source_model: take the direction from ANOTHER model's Q1 analysis (e.g. the pre-RL
+            # checkpoint), so every checkpoint is steered along the same unit vector
+            dadir = model_dir(d["source_model"]) / "analysis" / "vectors" if d.get("source_model") else adir
+            p = dadir / f"{d['group']}_{d['rep']}_L{L}_{d['contrast']}.npy"
             if not p.exists():
                 raise FileNotFoundError(f"{p} missing: run scripts/04_analyze.py first")
             v = np.load(p).astype(np.float64)
-            src = str(p.relative_to(model_dir(model_key)))
+            src = (f"{d['source_model']}/" + str(p.relative_to(model_dir(d["source_model"])))) if d.get("source_model") \
+                else str(p.relative_to(model_dir(model_key)))
             if d.get("orthogonal_to"):
-                v, removed = orthogonalise(v, [np.load(adir / f"{o['group']}_{o['rep']}_L{L}_{o['contrast']}.npy")
+                v, removed = orthogonalise(v, [np.load(dadir / f"{o['group']}_{o['rep']}_L{L}_{o['contrast']}.npy")
                                                .astype(np.float64) for o in d["orthogonal_to"]])
                 src += " minus its projection on " + ", ".join(
                     f"{o['group']}_{o['rep']}_L{L}_{o['contrast']}" for o in d["orthogonal_to"])
@@ -92,7 +96,8 @@ def build_steering_set(model_key: str, cfg: dict[str, Any]) -> dict[str, Any]:
             manifest["directions"][name]["removed_norm_frac"] = removed
     raw: dict[str, np.ndarray] = {}
     for name, d in cfg["directions"].items():
-        if name in manifest["directions"] and d["source"] == "analysis" and not d.get("orthogonal_to"):
+        if name in manifest["directions"] and d["source"] == "analysis" and not d.get("orthogonal_to") \
+                and not d.get("source_model"):
             raw[name] = np.load(adir / f"{d['group']}_{d['rep']}_L{L}_{d['contrast']}.npy").astype(np.float64)
     add_projections(manifest, cfg, raw, adir, L, out)
     rnd = cfg.get("random_directions", {})

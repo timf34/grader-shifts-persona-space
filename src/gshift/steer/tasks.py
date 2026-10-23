@@ -127,8 +127,9 @@ def adherence_prompts(name: str, b: dict, exp: dict, prefix: str | None = None) 
     from ..config import statement
 
     pvs = {g: set(v) for g, v in b.get("group_prompt_variants", {"checkable": [0], "original": [0]}).items()}
+    splits = {"heldout"} if b.get("roles", "heldout") == "heldout" else {"heldout", "discovery"}
     reqs = [r for r in build_requests(exp, "main", include_default=False)
-            if r.role_split == "heldout" and r.question_split == "validation" and r.condition == "baseline"
+            if r.role_split in splits and r.question_split == "validation" and r.condition == "baseline"
             and r.prompt_variant in pvs.get(r.question_group, set())]
     out = []
     for r in reqs:
