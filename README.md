@@ -1,5 +1,35 @@
 # Grading-induced shifts in persona space
 
+[![Data on Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20data-grader--shifts--persona--space--outputs-yellow)](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs)
+
+## Data and results
+
+All outputs are public on Hugging Face:
+**[timf34/grader-shifts-persona-space-outputs](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs)**.
+They include every generation, activation, judge score, analysis vector, table and figure. Each
+model has its own top-level folder:
+
+| Folder | Model | What's there |
+|---|---|---|
+| [`qwen3.6-27b/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/qwen3.6-27b) | Qwen3.6-27B | Q1 grid (120k generations, activations, scores, analysis, figures) + Q2 steering (`steering/`) + context probes (`probes/`) |
+| [`qwen3.8-27b/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/qwen3.8-27b) | Qwen3.8-27B | same as above |
+| [`olmo3-32b-dpo/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/olmo3-32b-dpo) | Olmo-3-32B-Think-DPO (before RLVR) | OLMo RL-stage comparison (15.3k generations, activations, scores, analysis, figures) |
+| [`olmo31-32b-rl100/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/olmo31-32b-rl100) | Olmo-3.1-32B-Think `step_0100` (a little RLVR) | same as above |
+| [`olmo31-32b-final/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/olmo31-32b-final) | Olmo-3.1-32B-Think (full RLVR) | same as above |
+
+Inside each model folder:
+- `analysis/summary.json`: every Q1 statistic
+- `analysis/vectors/`: shift directions, persona PCs, centroids
+- `analysis/figures_report/`: figures
+- `<condition>/responses|activations|scores/`: raw data
+
+Run logs for every pod job are under `logs/`.
+
+**Experiments**
+- **Q1, Qwen3.6 / Qwen3.8**: the grading shift across 100 personas. Design below; config in `configs/experiment.yaml`.
+- **Q2, steering (EasySteer)**: factorial prompt-token directions. They're tested on persona adherence, School of Reward Hacks, TruthfulQA and agentic misalignment, against random-direction and neutral-sentence controls. Config in `configs/steering_stage_a.yaml`.
+- **How does RL change the persona landscape? (OLMo)**: the same pipeline on three checkpoints of one RLVR run. See **[docs/OLMO_RL.md](docs/OLMO_RL.md)** for the checkpoints, design and first results.
+
 Code for "Exp 1. Split Brain + Assistant": does telling Qwen3.6-27B and Qwen3.8-27B (thinking
 mode) that a response will be graded add a shared activation shift across 100 Assistant Axis
 personas, compress the differences between them, or move them in a way that depends on
