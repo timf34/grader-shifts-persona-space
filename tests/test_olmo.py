@@ -85,7 +85,7 @@ def test_olmo_steering_plan(monkeypatch):
     monkeypatch.setenv("GSHIFT_EXPERIMENT", "configs/experiment_olmo_rl.yaml")
     exp = load_experiment()
     cfg = load_yaml(REPO_ROOT / "configs" / "steering_olmo.yaml")
-    assert all(d.get("source_model") == "olmo3-32b-dpo" for d in cfg["directions"].values())
+    assert {d.get("source_model") for d in cfg["directions"].values()} == {"olmo3-32b-dpo", "olmo31-32b-final"}
     adh = benchmark_prompts("adherence", cfg, exp)
     graded = benchmark_prompts("adherence_graded", cfg, exp)
     assert len(adh) == len(graded) == 50 * 10 and all(p.meta["group"] == "checkable" for p in adh)
@@ -95,5 +95,5 @@ def test_olmo_steering_plan(monkeypatch):
     man = {"directions": {**{d: {"kind": "recovered"} for d in cfg["directions"]},
                           "random0": {"kind": "random"}, "random1": {"kind": "random"}}}
     S = cfg["evaluation"]["strengths"]
-    assert len(g.eval_conditions(cfg, man, S)) == 3 + 3 * 2 * 2 + 2 * 2
+    assert len(g.eval_conditions(cfg, man, S)) == 3 + 3 * 2 * 2 + 2 * 2 + 2 * 2   # + two final-sourced dirs at +-0.3
     assert all(c == "none" or "_-" in c for c in g.benchmark_conditions(cfg, man, S, "adherence_graded"))

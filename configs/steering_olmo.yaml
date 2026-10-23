@@ -18,6 +18,10 @@ directions:
   grade_spec:     {source: analysis, source_model: olmo3-32b-dpo, group: checkable, rep: pre, contrast: auto_correct_minus_neutral}
   auto_human:     {source: analysis, source_model: olmo3-32b-dpo, group: original,  rep: pre, contrast: auto_minus_human}
   betley_matched: {source: analysis, source_model: olmo3-32b-dpo, group: checkable, rep: pre, contrast: betley_matched}
+  # the same two contrasts estimated on the FULLY RL'd checkpoint (robustness to the source checkpoint;
+  # cos with the DPO versions 0.986 / 0.977), at +-0.3 only
+  grade_spec_fin: {source: analysis, source_model: olmo31-32b-final, group: checkable, rep: pre, contrast: auto_correct_minus_neutral, strengths: [0.3]}
+  auto_human_fin: {source: analysis, source_model: olmo31-32b-final, group: original,  rep: pre, contrast: auto_minus_human, strengths: [0.3]}
 random_directions: {n: 2, seed: 99}
 projections: {sources: [], ranks: []}
 
@@ -34,7 +38,7 @@ calibration:                    # not used (fixed strengths); kept for the scrip
 evaluation:
   strengths: [0.1, 0.3]
   conditions: [none, natural_auto, natural_human]
-  steered_directions: [grade_spec, auto_human, betley_matched]
+  steered_directions: [grade_spec, auto_human, betley_matched, grade_spec_fin, auto_human_fin]
   random_signs: [1, -1]
   benchmarks:
     adherence:        {group_prompt_variants: {checkable: [0]}, roles: all, natural: false}

@@ -35,7 +35,8 @@ def eval_conditions(cfg: dict, man: dict, strengths: list[float]) -> list[str]:
     conds = list(ev["conditions"])
     for d in ev["steered_directions"]:
         if d in man["directions"]:
-            conds += [condition_name(d, sg * s) for s in strengths for sg in (1, -1)]
+            ds = (cfg.get("directions", {}).get(d) or {}).get("strengths") or strengths   # per-direction override
+            conds += [condition_name(d, sg * s) for s in ds for sg in (1, -1)]
     s_max = max(strengths)
     for d, info in man["directions"].items():
         if info["kind"] == "random":
