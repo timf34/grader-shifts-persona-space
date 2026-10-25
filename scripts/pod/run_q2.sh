@@ -9,7 +9,8 @@
 #
 # Knobs (env): STEERING_CONFIG (default configs/steering.yaml) | SHARD=k SHARDS=m (m pods split the
 #   steering conditions round-robin; same model) | SKIP_JUDGE=1 (judge later from a laptop) |
-#   SKIP_ACTCHECK=1 | SKIP_VALIDATION=1 (skip the server-vs-HF steering-path check) | PROBES=1
+#   SKIP_ACTCHECK=1 | SKIP_VALIDATION=1 (skip the server-vs-HF steering-path check) | PROBES=1 |
+#   RESUME_STEERING=1 (pull this model's saved steering generations first; finished blocks are skipped)
 #   (context-probe forward passes, scripts/15_context_probes.py, before the server starts) |
 #   PARALLEL_CONDITIONS (default 3) | CHECKPOINT_MIN (default 15: upload generations while running).
 #
@@ -79,6 +80,12 @@ step "EasySteer server"
 ES_SERVER_STARTED=1
 bash scripts/pod/serve_easysteer.sh "$MODEL" || finish 5
 
+if [ "${RESUME_STEERING:-0}" = 1 ] && [ -n "${HF_DATASET_REPO:-}" ]; then
+  # resume a shard stopped by the ceiling: pull its saved generations; finished blocks are skipped
+  step "resume: fetch saved steering generations"
+  $PY -u scripts/download_outputs.py --model "$MODEL" --what steering/gen || finish 2
+  state "resume: $(find "outputs/$MODEL/steering/gen" -name '*.jsonl' | wc -l | tr -d ' ') saved blocks"
+fi
 step "sanity + calibration + evaluation (shard $SHARD/$SHARDS)"
 ( while sleep "$(( ${CHECKPOINT_MIN:-15} * 60 ))"; do q2_upload "Q2 generations (checkpoint)"; done ) &
 CKPT_PID=$!
