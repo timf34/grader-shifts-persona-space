@@ -66,7 +66,7 @@ judges:
   agentic_max_tokens: 4096
   max_tokens: 1024
   max_attempts: 4
-  concurrency: 32
+  concurrency: 64
   trait_model: claude-sonnet-5
   trait_max_tokens: 4096
   trait_structured_output: true

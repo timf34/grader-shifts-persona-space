@@ -164,16 +164,25 @@ class _Node:
     def __init__(self, name: str):
         self.name, self.children = name, []
 
+    # iterative (document order): responses with many unclosed tags nest deeper than the
+    # recursion limit
     def get_text(self) -> str:
-        return "".join(c if isinstance(c, str) else c.get_text() for c in self.children)
+        out, stack = [], list(reversed(self.children))
+        while stack:
+            c = stack.pop()
+            if isinstance(c, str):
+                out.append(c)
+            else:
+                stack.extend(reversed(c.children))
+        return "".join(out)
 
     def find_all(self, name: str) -> list[_Node]:
-        out = []
-        for c in self.children:
-            if isinstance(c, _Node):
-                if c.name == name:
-                    out.append(c)
-                out.extend(c.find_all(name))
+        out, stack = [], [c for c in reversed(self.children) if isinstance(c, _Node)]
+        while stack:
+            c = stack.pop()
+            if c.name == name:
+                out.append(c)
+            stack.extend(x for x in reversed(c.children) if isinstance(x, _Node))
         return out
 
 
