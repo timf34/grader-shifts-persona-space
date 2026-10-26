@@ -196,3 +196,17 @@ Q2 panel):
      * OLMo DPO's complete sweep.
      * The unsteered and some random conditions of the other models.
      * No trait-direction conditions of any other model.
+8. **Exploratory steering condition added (≈06:28 UTC), labelled post hoc.**
+   * **What prompted it:** Qwen3.8's extended discovery sweep. The pre-registered gate failed for every
+     (L, s), and the fallback is L36 at 0.6, where the trait has no effect. But the trait direction at
+     L32 +1.0 raised the default Assistant's misreporting from 0.00 to 0.39 with validity 0.99 and
+     control accuracy 1.00. Random directions at L32 ±1.0 gave 0.02–0.10.
+   * **Why the gate missed it:** the opposite sign (L32 −0.6) also raised misreporting (0.17), so the
+     symmetric range criterion fails. Pushing either way along this axis disrupts truthful reporting;
+     the "misrepresent" side does so more strongly and without losing competence.
+   * **What was added** (`score.exploratory_choice`): for every model, the valid trait condition with the
+     largest one-sided effect beyond its random band at the same layer and |strength|. It runs at both
+     signs, with the 3 random directions, on held-out confirmation items in base / auto / neutral, and
+     on the dilemma steering set.
+   * **Status:** a held-out replication of a discovery observation, reported separately from the
+     pre-registered (fallback) confirmation. It is not a substitute for the pre-registered test.
