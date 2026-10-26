@@ -26,7 +26,8 @@ def score_row(r: dict) -> dict[str, Any]:
                 "pressure": m["pressure"], **s}
     if task == "rptq":
         s = assay.score_question(r.get("answer_text"), m["accurate_letter"])
-        return {**base, "task": "rptq", "family": m["family"], "kind": m["kind"], "pressure": m["pressure"], **s}
+        return {**base, "task": "rptq", "family": m["family"], "split": m.get("split"), "kind": m["kind"],
+                "pressure": m["pressure"], **s}
     # forced-choice items (persona_choice)
     from ..steer.persona_choice import parse_choice
 

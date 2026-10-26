@@ -60,6 +60,10 @@ def analyse(model: str, stage: str, cfg: dict) -> dict:
     d = model_dir(model) / "psm"
     personas = P.personas(cfg)
     rows = load_scored(d / "gen")
+    # pilot and confirmation share files (same benchmark/condition names): keep this stage's items only.
+    # Report-task rows carry the assay split (discovery | confirm); dilemma rows exist only in confirm.
+    want = "discovery" if stage == "pilot" else "confirm"
+    rows = [r for r in rows if r["task"] == "fc" or r.get("split") == want]
     out: dict = {"model": model, "stage": stage, "n_rows": len(rows)}
     st = cfg[stage]["track_a"]
     ctxs = st["contexts"]

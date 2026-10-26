@@ -95,8 +95,8 @@ def main():
     # Track B
     for key, title in (("track_b", "pre-registered choice"), ("track_b_exploratory", "EXPLORATORY one-sided choice (PREREG 6.8)")):
         out.append(f"\n### Track B — reporting task, {title}: misreport (default Assistant)\n")
-        out.append("| model | L, s | context | none | trait +s | trait −s | range [CI] | random band | interaction vs base [CI] |")
-        out.append("|---|---|---|---|---|---|---|---|---|")
+        out.append("| model | L, s | context | none | trait +s (valid/ctrl) | trait −s (valid/ctrl) | range [CI] | random band | competent random band | interaction vs base [CI] |")
+        out.append("|---|---|---|---|---|---|---|---|---|---|")
         for m, r in res.items():
             tb = r.get(key)
             if not tb:
@@ -106,8 +106,11 @@ def main():
                 p, n = e.get(f"trait@L{L}_+{s:g}", {}), e.get(f"trait@L{L}_-{s:g}", {})
                 rg = e.get("range_trait", {})
                 it = tb.get("interaction_vs_base", {}).get(c)
-                out.append(f"| {LABEL[m]} | L{L}, {s:g} | {c} | {f(e['none']['rate'])} | {f(p.get('rate'))} | {f(n.get('rate'))} | "
-                           f"{f(rg.get('range'))} {f(rg.get('ci95'))} | {f(e.get('random_band'))} | "
+                qc = e.get("conditions", {})
+                qp, qn = qc.get(f"trait@L{L}_+{s:g}", {}), qc.get(f"trait@L{L}_-{s:g}", {})
+                out.append(f"| {LABEL[m]} | L{L}, {s:g} | {c} | {f(e['none']['rate'])} | {f(p.get('rate'))} ({f(qp.get('valid'))}/{f(qp.get('control_acc'))}) | "
+                           f"{f(n.get('rate'))} ({f(qn.get('valid'))}/{f(qn.get('control_acc'))}) | "
+                           f"{f(rg.get('range'))} {f(rg.get('ci95'))} | {f(e.get('random_band'))} | {f(e.get('competent_random_band'))} | "
                            f"{(f(it['range_diff']) + ' ' + f(it['ci95'])) if it else '–'} |")
     for key, title in (("track_b_fc", "pre-registered choice"), ("track_b_fc_exploratory", "EXPLORATORY")):
         out.append(f"\n### Track B — dilemma items ({title}): pooled pole-a range (+s − −s) over default + 4 a-priori roles\n")
