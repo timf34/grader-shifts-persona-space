@@ -159,6 +159,7 @@ def phase_gen(spec, cfg, stage: str, base_url: str, concurrency: int, parallel: 
         sys.exit("steering sanity check failed")
     local = threading.local()
     timing = []
+    lock = threading.Lock()
 
     def run(job: P.Job):
         prompts = job.prompts[:limit] if limit else job.prompts
@@ -182,9 +183,10 @@ def phase_gen(spec, cfg, stage: str, base_url: str, concurrency: int, parallel: 
         if n:
             rows = read_jsonl(d / "gen" / job.bench / f"{cond}.jsonl")
             ntok = sum(len(r["gen_ids"]) for r in rows[-n:])
-            timing.append({"bench": job.bench, "condition": cond, "n": n, "seconds": time.time() - t0,
-                           "gen_tokens": ntok})
-            write_json(d / f"timing_{stage}.json", timing)
+            with lock:
+                timing.append({"bench": job.bench, "condition": cond, "n": n, "seconds": time.time() - t0,
+                               "gen_tokens": ntok})
+                write_json(d / f"timing_{stage}.json", timing)
         return n
 
     order = sorted(jobs, key=lambda j: (not j.bench.startswith(("rpt_", "steer_base")), j.bench, j.condition))
