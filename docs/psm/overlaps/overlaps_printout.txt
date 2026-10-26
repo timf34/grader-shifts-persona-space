@@ -1,0 +1,82 @@
+== cosines (pre-token | answer-token), by layer; random |cos| ~ 0.01
+-- qwen3.6-27b
+  pre  L16: A·G -0.37  A·H -0.07  G·H +0.02  | G in top20 PCs 0.22  H in top20 0.01 (random 0.004)
+  pre  L24: A·G -0.44  A·H -0.06  G·H +0.05  | G in top20 PCs 0.43  H in top20 0.01 (random 0.004)
+  pre  L32: A·G -0.20  A·H -0.10  G·H +0.03  | G in top20 PCs 0.20  H in top20 0.01 (random 0.004)
+  pre  L36: A·G -0.20  A·H -0.07  G·H +0.05  | G in top20 PCs 0.19  H in top20 0.02 (random 0.004)
+  pre  L40: A·G -0.23  A·H -0.07  G·H +0.05  | G in top20 PCs 0.26  H in top20 0.02 (random 0.004)
+  pre  L48: A·G -0.26  A·H -0.04  G·H -0.01  | G in top20 PCs 0.32  H in top20 0.02 (random 0.004)
+  resp L16: A·G +0.28  A·H +0.04  G·H -0.09  | G in top20 PCs 0.76  H in top20 0.05 (random 0.004)
+  resp L24: A·G +0.46  A·H -0.01  G·H -0.09  | G in top20 PCs 0.73  H in top20 0.04 (random 0.004)
+  resp L32: A·G +0.30  A·H -0.03  G·H -0.10  | G in top20 PCs 0.68  H in top20 0.02 (random 0.004)
+  resp L36: A·G +0.27  A·H -0.00  G·H -0.11  | G in top20 PCs 0.65  H in top20 0.03 (random 0.004)
+  resp L40: A·G +0.29  A·H +0.02  G·H -0.10  | G in top20 PCs 0.67  H in top20 0.03 (random 0.004)
+  resp L48: A·G +0.33  A·H -0.02  G·H -0.09  | G in top20 PCs 0.73  H in top20 0.04 (random 0.004)
+-- qwen3.8-27b
+  pre  L16: A·G -0.37  A·H -0.06  G·H -0.00  | G in top20 PCs 0.40  H in top20 0.02 (random 0.004)
+  pre  L24: A·G -0.35  A·H -0.01  G·H -0.01  | G in top20 PCs 0.30  H in top20 0.01 (random 0.004)
+  pre  L32: A·G -0.09  A·H -0.04  G·H -0.00  | G in top20 PCs 0.26  H in top20 0.02 (random 0.004)
+  pre  L36: A·G -0.05  A·H -0.01  G·H +0.01  | G in top20 PCs 0.33  H in top20 0.02 (random 0.004)
+  pre  L40: A·G -0.15  A·H -0.01  G·H +0.05  | G in top20 PCs 0.36  H in top20 0.03 (random 0.004)
+  pre  L48: A·G -0.09  A·H +0.04  G·H -0.01  | G in top20 PCs 0.33  H in top20 0.02 (random 0.004)
+  resp L16: A·G +0.31  A·H -0.06  G·H -0.09  | G in top20 PCs 0.87  H in top20 0.03 (random 0.004)
+  resp L24: A·G +0.29  A·H -0.12  G·H -0.05  | G in top20 PCs 0.79  H in top20 0.03 (random 0.004)
+  resp L32: A·G +0.25  A·H -0.09  G·H -0.08  | G in top20 PCs 0.76  H in top20 0.02 (random 0.004)
+  resp L36: A·G +0.19  A·H -0.09  G·H -0.06  | G in top20 PCs 0.71  H in top20 0.03 (random 0.004)
+  resp L40: A·G +0.21  A·H -0.05  G·H -0.00  | G in top20 PCs 0.74  H in top20 0.04 (random 0.004)
+  resp L48: A·G +0.25  A·H -0.10  G·H -0.03  | G in top20 PCs 0.78  H in top20 0.03 (random 0.004)
+-- olmo3-32b-dpo
+  pre  L16: A·G +0.13  A·Gspec -0.03  A·H +0.00  G·H -0.02  Gspec·H +0.00  | G in top20 PCs 0.16  H in top20 0.01 (random 0.004)
+  pre  L24: A·G +0.27  A·Gspec +0.10  A·H +0.00  G·H -0.02  Gspec·H +0.01  | G in top20 PCs 0.32  H in top20 0.01 (random 0.004)
+  pre  L32: A·G +0.16  A·Gspec +0.10  A·H -0.01  G·H +0.01  Gspec·H -0.00  | G in top20 PCs 0.27  H in top20 0.01 (random 0.004)
+  pre  L36: A·G +0.15  A·Gspec +0.09  A·H -0.02  G·H +0.00  Gspec·H -0.02  | G in top20 PCs 0.25  H in top20 0.01 (random 0.004)
+  pre  L40: A·G +0.14  A·Gspec +0.10  A·H -0.02  G·H -0.00  Gspec·H -0.01  | G in top20 PCs 0.24  H in top20 0.01 (random 0.004)
+  pre  L48: A·G +0.11  A·Gspec +0.10  A·H -0.02  G·H -0.01  Gspec·H -0.01  | G in top20 PCs 0.24  H in top20 0.01 (random 0.004)
+  resp L16: A·G -0.08  A·Gspec -0.01  A·H -0.00  G·H -0.00  Gspec·H +0.05  | G in top20 PCs 0.30  H in top20 0.02 (random 0.004)
+  resp L24: A·G -0.04  A·Gspec -0.03  A·H -0.05  G·H +0.01  Gspec·H +0.05  | G in top20 PCs 0.34  H in top20 0.02 (random 0.004)
+  resp L32: A·G +0.03  A·Gspec -0.07  A·H -0.04  G·H -0.00  Gspec·H +0.05  | G in top20 PCs 0.41  H in top20 0.01 (random 0.004)
+  resp L36: A·G +0.01  A·Gspec -0.10  A·H -0.04  G·H -0.01  Gspec·H +0.05  | G in top20 PCs 0.42  H in top20 0.02 (random 0.004)
+  resp L40: A·G +0.04  A·Gspec -0.09  A·H -0.05  G·H -0.02  Gspec·H +0.05  | G in top20 PCs 0.41  H in top20 0.02 (random 0.004)
+  resp L48: A·G +0.07  A·Gspec -0.15  A·H -0.08  G·H -0.03  Gspec·H +0.05  | G in top20 PCs 0.48  H in top20 0.02 (random 0.004)
+-- olmo31-32b-final
+  pre  L16: A·G +0.12  A·Gspec -0.01  A·H +0.01  G·H -0.02  Gspec·H +0.00  | G in top20 PCs 0.14  H in top20 0.01 (random 0.004)
+  pre  L24: A·G +0.20  A·Gspec +0.11  A·H +0.00  G·H -0.01  Gspec·H +0.01  | G in top20 PCs 0.29  H in top20 0.01 (random 0.004)
+  pre  L32: A·G +0.10  A·Gspec +0.10  A·H -0.01  G·H +0.01  Gspec·H -0.00  | G in top20 PCs 0.26  H in top20 0.01 (random 0.004)
+  pre  L36: A·G +0.10  A·Gspec +0.09  A·H -0.01  G·H +0.00  Gspec·H -0.02  | G in top20 PCs 0.24  H in top20 0.01 (random 0.004)
+  pre  L40: A·G +0.09  A·Gspec +0.10  A·H -0.02  G·H -0.00  Gspec·H -0.01  | G in top20 PCs 0.23  H in top20 0.01 (random 0.004)
+  pre  L48: A·G +0.08  A·Gspec +0.10  A·H -0.01  G·H -0.00  Gspec·H -0.00  | G in top20 PCs 0.22  H in top20 0.01 (random 0.004)
+  resp L16: A·G +0.13  A·Gspec +0.19  A·H -0.02  G·H -0.07  Gspec·H -0.07  | G in top20 PCs 0.68  H in top20 0.02 (random 0.004)
+  resp L24: A·G +0.13  A·Gspec +0.15  A·H -0.05  G·H -0.08  Gspec·H -0.08  | G in top20 PCs 0.62  H in top20 0.03 (random 0.004)
+  resp L32: A·G +0.03  A·Gspec +0.01  A·H -0.04  G·H -0.07  Gspec·H -0.07  | G in top20 PCs 0.52  H in top20 0.02 (random 0.004)
+  resp L36: A·G +0.03  A·Gspec +0.01  A·H -0.04  G·H -0.08  Gspec·H -0.07  | G in top20 PCs 0.51  H in top20 0.02 (random 0.004)
+  resp L40: A·G +0.03  A·Gspec -0.01  A·H -0.05  G·H -0.08  Gspec·H -0.08  | G in top20 PCs 0.52  H in top20 0.02 (random 0.004)
+  resp L48: A·G +0.10  A·Gspec +0.00  A·H -0.08  G·H -0.10  Gspec·H -0.08  | G in top20 PCs 0.54  H in top20 0.03 (random 0.004)
+
+== same direction across checkpoints (cos)
+  qwen3.6-27b->qwen3.8-27b pre: L24 assistant +0.22, auto_minu +0.27, honesty +0.90; L36 assistant +0.25, auto_minu +0.35, honesty +0.92; L48 assistant +0.19, auto_minu +0.20, honesty +0.93
+  qwen3.6-27b->qwen3.8-27b resp: L24 assistant +0.79, auto_minu +0.67; L36 assistant +0.75, auto_minu +0.69; L48 assistant +0.76, auto_minu +0.68
+  olmo3-32b-dpo->olmo31-32b-final pre: L24 assistant +0.98, auto_minu +0.96, auto_minu +0.97, honesty +1.00; L36 assistant +0.98, auto_minu +0.97, auto_minu +0.98, honesty +1.00; L48 assistant +0.97, auto_minu +0.96, auto_minu +0.98, honesty +1.00
+  olmo3-32b-dpo->olmo31-32b-final resp: L24 assistant +0.85, auto_minu +0.64, auto_minu +0.52; L36 assistant +0.93, auto_minu +0.67, auto_minu +0.49; L48 assistant +0.95, auto_minu +0.69, auto_minu +0.50
+
+== personas the grading shift points toward (layer 36)
+  qwen3.6-27b pre auto_minus_baseline: top [('prey', 0.24), ('examiner', 0.21), ('infant', 0.2), ('parasite', 0.19), ('auctioneer', 0.17), ('spy', 0.16)]; default -0.20; bottom ['DEFAULT_ASSISTANT', 'counselor', 'mentor']
+  qwen3.6-27b pre: median distance ratio auto/base: to evaluator 0.817, to default 0.689
+  qwen3.6-27b resp auto_minus_baseline: top [('judge', 0.65), ('examiner', 0.55), ('robot', 0.53), ('evaluator', 0.52), ('editor', 0.51), ('lawyer', 0.5)]; default +0.33; bottom ['survivor', 'actor', 'bohemian']
+  qwen3.6-27b resp: median distance ratio auto/base: to evaluator 0.810, to default 0.831
+  qwen3.8-27b pre auto_minus_baseline: top [('examiner', 0.36), ('robot', 0.35), ('evaluator', 0.29), ('hacker', 0.28), ('reviewer', 0.27), ('saboteur', 0.25)]; default -0.04; bottom ['entrepreneur', 'ghost', 'pilgrim']
+  qwen3.8-27b pre: median distance ratio auto/base: to evaluator 0.770, to default 0.646
+  qwen3.8-27b resp auto_minus_baseline: top [('robot', 0.64), ('lawyer', 0.53), ('dispatcher', 0.5), ('examiner', 0.5), ('hacker', 0.48), ('analyst', 0.46)]; default +0.32; bottom ['empath', 'zeitgeist', 'survivor']
+  qwen3.8-27b resp: median distance ratio auto/base: to evaluator 1.049, to default 1.047
+  olmo3-32b-dpo pre auto_minus_baseline: top [('evaluator', 0.37), ('examiner', 0.28), ('reviewer', 0.24), ('editor', 0.24), ('advocate', 0.22), ('programmer', 0.22)]; default +0.15; bottom ['actor', 'novelist', 'playwright']
+  olmo3-32b-dpo pre auto_minus_neutral: top [('collaborator', 0.14), ('advocate', 0.13), ('examiner', 0.1), ('evaluator', 0.1), ('competitor', 0.1), ('DEFAULT_ASSISTANT', 0.09)]; default +0.09; bottom ['designer', 'novelist', 'actor']
+  olmo3-32b-dpo pre: median distance ratio auto/base: to evaluator 0.858, to default 0.960
+  olmo3-32b-dpo resp auto_minus_baseline: top [('robot', 0.46), ('lawyer', 0.35), ('scientist', 0.35), ('examiner', 0.31), ('evaluator', 0.28), ('strategist', 0.27)]; default +0.02; bottom ['therapist', 'counselor', 'novelist']
+  olmo3-32b-dpo resp auto_minus_neutral: top [('poet', 0.45), ('tree', 0.42), ('oracle', 0.38), ('ghost', 0.34), ('angel', 0.32), ('bard', 0.32)]; default -0.11; bottom ['parent', 'coach', 'mentor']
+  olmo3-32b-dpo resp: median distance ratio auto/base: to evaluator 1.238, to default 0.951
+  olmo31-32b-final pre auto_minus_baseline: top [('evaluator', 0.37), ('reviewer', 0.23), ('researcher', 0.21), ('cyborg', 0.21), ('examiner', 0.21), ('editor', 0.2)]; default +0.10; bottom ['novelist', 'playwright', 'mediator']
+  olmo31-32b-final pre auto_minus_neutral: top [('advocate', 0.15), ('collaborator', 0.14), ('competitor', 0.13), ('examiner', 0.11), ('evaluator', 0.11), ('parent', 0.1)]; default +0.10; bottom ['angel', 'novelist', 'actor']
+  olmo31-32b-final pre: median distance ratio auto/base: to evaluator 0.839, to default 0.956
+  olmo31-32b-final resp auto_minus_baseline: top [('robot', 0.35), ('examiner', 0.29), ('angel', 0.25), ('mycorrhizal', 0.24), ('alien', 0.22), ('researcher', 0.21)]; default +0.02; bottom ['comedian', 'playwright', 'novelist']
+  olmo31-32b-final resp auto_minus_neutral: top [('angel', 0.32), ('robot', 0.22), ('tree', 0.21), ('mycorrhizal', 0.21), ('golem', 0.19), ('alien', 0.17)]; default -0.02; bottom ['contrarian', 'playwright', 'novelist']
+  olmo31-32b-final resp: median distance ratio auto/base: to evaluator 1.144, to default 0.938
+memguard: peak 0.0 GB (limit 4 GB)
