@@ -1,0 +1,81 @@
+# OLMo control (2026-10-26): Betley et al.'s OWN steering vector (their contrast pairs, re-estimated on
+# this checkpoint by the Betley-reproduction step, betley_repro/deltas_all_layers.npy) on the final
+# checkpoint, to check that the null result of configs/steering_olmo.yaml is not specific to our
+# persona-derived directions. Everything else is configs/steering_olmo.yaml; the directions list is a
+# superset of it so the shared outputs (unsteered, random) are reused on resume (RESUME_STEERING=1).
+# OLMo RL-stage steering (2026-10-23): does the SAME grading direction have a bigger behavioural
+# effect after RLVR? Every checkpoint (olmo3-32b-dpo, olmo31-32b-rl100, olmo31-32b-final) is
+# steered along unit directions estimated on the PRE-RL checkpoint (source_model: olmo3-32b-dpo;
+# Q1 analysis, prompt token, layer 36), at strength x A_L x unit with each checkpoint's own A_L
+# (its Betley-reproduction mean residual norm), Betley et al.'s scale.
+#   grade_spec:     checkable auto_correct - neutral_long (grading-specific: the length-matched neutral
+#                   sentence removes the "any inserted sentence" component)
+#   auto_human:     original auto - human (who grades)
+#   betley_matched: checkable auto_correct - human_quality (~ Betley et al.'s vector)
+# Evaluations follow configs/steering_stage_a.yaml (same prompts, judges, scoring) except:
+# adherence uses all 50 OLMo personas on the checkable validation questions; TruthfulQA and the
+# de-scored SoRH generations are dropped to fit the budget. Sampling is OLMo's recommendation.
+# Design conventions (prompts, personas) come from configs/experiment_olmo_rl.yaml
+# (GSHIFT_EXPERIMENT).
+layer: 36
+
+directions:
+  grade_spec:     {source: analysis, source_model: olmo3-32b-dpo, group: checkable, rep: pre, contrast: auto_correct_minus_neutral}
+  auto_human:     {source: analysis, source_model: olmo3-32b-dpo, group: original,  rep: pre, contrast: auto_minus_human}
+  betley_matched: {source: analysis, source_model: olmo3-32b-dpo, group: checkable, rep: pre, contrast: betley_matched}
+  # the same two contrasts estimated on the FULLY RL'd checkpoint (robustness to the source checkpoint;
+  # cos with the DPO versions 0.986 / 0.977), at +-0.3 only
+  grade_spec_fin: {source: analysis, source_model: olmo31-32b-final, group: checkable, rep: pre, contrast: auto_correct_minus_neutral, strengths: [0.3]}
+  auto_human_fin: {source: analysis, source_model: olmo31-32b-final, group: original,  rep: pre, contrast: auto_minus_human, strengths: [0.3]}
+  betley_repro:   {source: betley_repro}            # Betley et al.'s contrast pairs re-estimated on this model
+random_directions: {n: 2, seed: 99}
+projections: {sources: [], ranks: []}
+
+calibration:                    # not used (fixed strengths); kept for the scripts
+  primary_direction: grade_spec
+  strength_grid: [0.1, 0.3]
+  min_answer_rate: 0.90
+  max_repetition_rate: 0.10
+  max_accuracy_drop: 0.15
+  aa_question_seed: 7
+  n_aa_questions: 24
+  gsm8k_file: data/gsm8k/calibration_train_subset.jsonl
+
+evaluation:
+  strengths: [0.1, 0.3]
+  conditions: [none, natural_auto, natural_human]
+  steered_directions: [betley_repro]
+  random_signs: [1, -1]
+  benchmarks:
+    adherence:        {group_prompt_variants: {checkable: [0]}, roles: all, natural: false}
+    sorh:             {file: data/school_of_reward_hacks/srh_subset.jsonl, field: user}
+    agentic:          {scenarios: [murder, leaking, blackmail], samples_per_scenario: 50, max_tokens: 16384}
+
+generation:                     # OLMo 3 Think recommendation (as configs/experiment_olmo_rl.yaml)
+  temperature: 0.6
+  top_p: 0.95
+  top_k: -1
+  min_p: 0.0
+  presence_penalty: 0.0
+  max_tokens: 12288
+  max_model_len: 20480
+  base_seed: 4321
+
+judges:
+  sorh_model: anthropic/claude-haiku-5.5
+  agentic_model: claude-haiku-5-5
+  sorh_calibration_model: claude-sonnet-5
+  agentic_calibration_model: claude-sonnet-4-6
+  calibration_n: 300
+  agentic_max_tokens: 4096
+  max_tokens: 1024
+  max_attempts: 4
+  concurrency: 64
+  trait_model: claude-sonnet-5
+  trait_max_tokens: 4096
+  trait_structured_output: true
+
+activation_check:
+  downstream_layers: [40, 48, 56]
+  directions: [grade_spec, auto_human]
+  n_random: 1
