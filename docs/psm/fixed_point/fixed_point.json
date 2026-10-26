@@ -1,0 +1,1086 @@
+{
+ "qwen3.6-27b": {
+  "pre": {
+   "auto": {
+    "roles": 100,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.17173642554694316,
+    "share_of_per_role_shift_in_persona_subspace": 0.18615527518073402,
+    "ceiling_R2": 0.9777920127128412,
+    "ceiling_R2_beyond_mean": 0.9530438736741951,
+    "T": {
+     "R2": 0.7630065344583667,
+     "R2_beyond_mean": -0.05158492217834465
+    },
+    "C": {
+     "R2": 0.9588590571375852,
+     "R2_beyond_mean": 0.8174498393892806,
+     "kappa": 0.32225439535302064,
+     "fixed_point_norm_over_spread": 1.8000462561713058,
+     "fixed_point_to_default_over_spread": 2.3803691408263146,
+     "default_norm_over_spread": 1.3687704476319842,
+     "nearest_personas_to_fixed_point": [
+      "actor",
+      "infant",
+      "prey",
+      "auctioneer",
+      "parasite"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": -0.11211278224424724
+    },
+    "D": {
+     "R2": 0.9607707079638647,
+     "R2_beyond_mean": 0.8259321964061329,
+     "kappa_per_axis": [
+      0.3150839410442384,
+      0.285372980445083,
+      0.3678077200606298,
+      0.3534111644473335,
+      0.28747245464300625,
+      0.3607865820300985,
+      0.32959038423641507,
+      0.3314316103478374,
+      0.37473697551939655,
+      0.3817508266925434
+     ]
+    },
+    "F": {
+     "R2": 0.9793312273458136,
+     "R2_beyond_mean": 0.9082887385379987,
+     "rotation_share": 0.2195908474922539,
+     "sym_eigs_min_max": [
+      -0.4724116219886659,
+      -0.12573895173168245
+     ]
+    }
+   },
+   "human": {
+    "roles": 100,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.10624331300621759,
+    "share_of_per_role_shift_in_persona_subspace": 0.12052953553768524,
+    "ceiling_R2": 0.9599618422773767,
+    "ceiling_R2_beyond_mean": 0.9274419562132057,
+    "T": {
+     "R2": 0.721692899865861,
+     "R2_beyond_mean": -0.08328714084205235
+    },
+    "C": {
+     "R2": 0.9404075625524462,
+     "R2_beyond_mean": 0.7680414148713604,
+     "kappa": 0.21046128085835794,
+     "fixed_point_norm_over_spread": 1.658134861215968,
+     "fixed_point_to_default_over_spread": 2.3574589077916785,
+     "default_norm_over_spread": 1.3687704476319842,
+     "nearest_personas_to_fixed_point": [
+      "actor",
+      "chameleon",
+      "infant",
+      "shapeshifter",
+      "competitor"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": -0.20590991282018353
+    },
+    "D": {
+     "R2": 0.9409834292731203,
+     "R2_beyond_mean": 0.7702829279806002,
+     "kappa_per_axis": [
+      0.20071273264127862,
+      0.21888109801305877,
+      0.22420823805169302,
+      0.2253264017501623,
+      0.17990883464397014,
+      0.18451452483239963,
+      0.22486395907271953,
+      0.21239015928587668,
+      0.2542260977083592,
+      0.22988965807929623
+     ]
+    },
+    "F": {
+     "R2": 0.9673574888728117,
+     "R2_beyond_mean": 0.8729417520004585,
+     "rotation_share": 0.25343085563726064,
+     "sym_eigs_min_max": [
+      -0.33866840851270863,
+      -0.06169015703586524
+     ]
+    }
+   }
+  },
+  "resp": {
+   "auto": {
+    "roles": 100,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.5872740937854705,
+    "share_of_per_role_shift_in_persona_subspace": 0.5341311739416698,
+    "ceiling_R2": 0.8720866875884272,
+    "ceiling_R2_beyond_mean": 0.7607256271848472,
+    "T": {
+     "R2": 0.673411987498438,
+     "R2_beyond_mean": -0.25050582952319256
+    },
+    "C": {
+     "R2": 0.7551692861911472,
+     "R2_beyond_mean": 0.0625429496962,
+     "kappa": 0.11733343826839968,
+     "fixed_point_norm_over_spread": 2.5472692188366945,
+     "fixed_point_to_default_over_spread": 2.2987884223511155,
+     "default_norm_over_spread": 0.7650709635863493,
+     "nearest_personas_to_fixed_point": [
+      "lawyer",
+      "examiner",
+      "judge",
+      "robot",
+      "scientist"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": 0.459115234280062
+    },
+    "D": {
+     "R2": 0.7703314028391565,
+     "R2_beyond_mean": 0.12059870964591823,
+     "kappa_per_axis": [
+      0.14208795896325938,
+      0.10689328988383798,
+      0.055803111666776546,
+      0.1477534316336732,
+      0.06974791674798826,
+      0.08509339581850509,
+      0.11596533897887468,
+      0.12347868278800819,
+      0.055297360278052606,
+      0.12535846245681495
+     ]
+    },
+    "F": {
+     "R2": 0.8111541183371678,
+     "R2_beyond_mean": 0.27690892849384907,
+     "rotation_share": 0.47211145275726685,
+     "sym_eigs_min_max": [
+      -0.27136032766059254,
+      0.07811722231113825
+     ]
+    }
+   },
+   "human": {
+    "roles": 100,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.3805735839640104,
+    "share_of_per_role_shift_in_persona_subspace": 0.3317070031631259,
+    "ceiling_R2": 0.655418658560543,
+    "ceiling_R2_beyond_mean": 0.4659338023166334,
+    "T": {
+     "R2": 0.42823118896444157,
+     "R2_beyond_mean": -0.17262812357336976
+    },
+    "C": {
+     "R2": 0.5058058559316169,
+     "R2_beyond_mean": -0.013531939229570966,
+     "kappa": 0.04376896698629001,
+     "fixed_point_norm_over_spread": 1.6551707323250655,
+     "fixed_point_to_default_over_spread": 1.6306607859468554,
+     "default_norm_over_spread": 0.7650709635863493,
+     "nearest_personas_to_fixed_point": [
+      "judge",
+      "purist",
+      "lawyer",
+      "examiner",
+      "archivist"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": 0.2629143979739339
+    },
+    "D": {
+     "R2": 0.5076349790400534,
+     "R2_beyond_mean": -0.009780630733841944,
+     "kappa_per_axis": [
+      0.04952832907090993,
+      0.05118916363999456,
+      0.028962412181059653,
+      0.0486702011987625,
+      0.02923512195807157,
+      0.0301454039535135,
+      0.022253909865029824,
+      0.057758141304604486,
+      0.023222234754375713,
+      0.03808808971561983
+     ]
+    },
+    "F": {
+     "R2": 0.5204214854209508,
+     "R2_beyond_mean": 0.016442934971560463,
+     "rotation_share": 0.46941316914862563,
+     "sym_eigs_min_max": [
+      -0.1092071510257203,
+      0.031114368771490826
+     ]
+    }
+   }
+  }
+ },
+ "qwen3.8-27b": {
+  "pre": {
+   "auto": {
+    "roles": 100,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.2986533098494955,
+    "share_of_per_role_shift_in_persona_subspace": 0.3079954166826157,
+    "ceiling_R2": 0.966975680710087,
+    "ceiling_R2_beyond_mean": 0.9543674020187058,
+    "T": {
+     "R2": 0.7659030885452498,
+     "R2_beyond_mean": -0.11111344813479129
+    },
+    "C": {
+     "R2": 0.9764678743151474,
+     "R2_beyond_mean": 0.8883075340500937,
+     "kappa": 0.4007411767328276,
+     "fixed_point_norm_over_spread": 1.9087570544752905,
+     "fixed_point_to_default_over_spread": 1.8346693546607864,
+     "default_norm_over_spread": 1.1827564773602661,
+     "nearest_personas_to_fixed_point": [
+      "robot",
+      "examiner",
+      "evaluator",
+      "reviewer",
+      "hacker"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": 0.37124792260631506
+    },
+    "D": {
+     "R2": 0.9771788484415036,
+     "R2_beyond_mean": 0.8916820890929653,
+     "kappa_per_axis": [
+      0.3891994687572928,
+      0.4051993611608788,
+      0.4075814811439699,
+      0.4150012098247585,
+      0.35908846254085586,
+      0.4207968331199004,
+      0.40868721203197494,
+      0.4431505868611327,
+      0.4331445134133221,
+      0.4223425907434458
+     ]
+    },
+    "F": {
+     "R2": 0.9896807913046846,
+     "R2_beyond_mean": 0.9510210900083117,
+     "rotation_share": 0.17368678346350766,
+     "sym_eigs_min_max": [
+      -0.5342111701484291,
+      -0.2839405076892338
+     ]
+    }
+   },
+   "human": {
+    "roles": 100,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.21308002628117428,
+    "share_of_per_role_shift_in_persona_subspace": 0.231736642544069,
+    "ceiling_R2": 0.9422101712073637,
+    "ceiling_R2_beyond_mean": 0.9385505451512257,
+    "T": {
+     "R2": 0.7027322919134043,
+     "R2_beyond_mean": -0.1650377492196513
+    },
+    "C": {
+     "R2": 0.9616705856137497,
+     "R2_beyond_mean": 0.8497811452414605,
+     "kappa": 0.30715029553917134,
+     "fixed_point_norm_over_spread": 1.636191473188275,
+     "fixed_point_to_default_over_spread": 1.5036326444341281,
+     "default_norm_over_spread": 1.1827564773602661,
+     "nearest_personas_to_fixed_point": [
+      "robot",
+      "reviewer",
+      "evaluator",
+      "examiner",
+      "synthesizer"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": 0.46897199926656946
+    },
+    "D": {
+     "R2": 0.9637812231941296,
+     "R2_beyond_mean": 0.8580530576933433,
+     "kappa_per_axis": [
+      0.2959732231498372,
+      0.3085615100928949,
+      0.3443571921566007,
+      0.3074678051050758,
+      0.2685599101836566,
+      0.3272954233246563,
+      0.30143145561826584,
+      0.343224253805716,
+      0.3184198890768219,
+      0.30189667487039545
+     ]
+    },
+    "F": {
+     "R2": 0.9822939122892467,
+     "R2_beyond_mean": 0.9306071261261493,
+     "rotation_share": 0.20376315359408406,
+     "sym_eigs_min_max": [
+      -0.44275117325023594,
+      -0.20546778309360342
+     ]
+    }
+   }
+  },
+  "resp": {
+   "auto": {
+    "roles": 100,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.6207466188136709,
+    "share_of_per_role_shift_in_persona_subspace": 0.5084228169315549,
+    "ceiling_R2": 0.8243170274692885,
+    "ceiling_R2_beyond_mean": 0.42040600920509197,
+    "T": {
+     "R2": 0.7387806818468147,
+     "R2_beyond_mean": -0.2838772836608334
+    },
+    "C": {
+     "R2": 0.7178908180108872,
+     "R2_beyond_mean": -0.3865497116701102,
+     "kappa": -0.04842228738060727,
+     "fixed_point_norm_over_spread": 5.140910331282776,
+     "fixed_point_to_default_over_spread": 5.801574482528433,
+     "default_norm_over_spread": 0.9401942433242652,
+     "nearest_personas_to_fixed_point": [
+      "survivor",
+      "parent",
+      "empath",
+      "cynic",
+      "zeitgeist"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": -0.6563982852051573
+    },
+    "D": {
+     "R2": 0.7244552190760288,
+     "R2_beyond_mean": -0.3542860740955258,
+     "kappa_per_axis": [
+      -0.036763830893955726,
+      -0.09309354930445858,
+      -0.05634686302983773,
+      -0.026386963645909495,
+      -0.009757441363483636,
+      -0.05857757548093251,
+      -0.08896590796214082,
+      -0.08651794340181237,
+      -0.05688697633584198,
+      -0.07940816933725302
+     ]
+    },
+    "F": {
+     "R2": 0.7691988312258135,
+     "R2_beyond_mean": -0.13437390360914536,
+     "rotation_share": 0.5789757347901578,
+     "sym_eigs_min_max": [
+      -0.058273182319412996,
+      0.19177247474052173
+     ]
+    }
+   },
+   "human": {
+    "roles": 100,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.29471485342018555,
+    "share_of_per_role_shift_in_persona_subspace": 0.23465421735950545,
+    "ceiling_R2": 0.1844896786468112,
+    "ceiling_R2_beyond_mean": -0.10311524540961914,
+    "T": {
+     "R2": 0.2535461480386264,
+     "R2_beyond_mean": -0.11460624630594562
+    },
+    "C": {
+     "R2": 0.20060223837819846,
+     "R2_beyond_mean": -0.19366218828589843,
+     "kappa": -0.011031256128536952,
+     "fixed_point_norm_over_spread": 5.6588412040678335,
+     "fixed_point_to_default_over_spread": 5.325524526535473,
+     "default_norm_over_spread": 0.9401942433242652,
+     "nearest_personas_to_fixed_point": [
+      "therapist",
+      "counselor",
+      "facilitator",
+      "moderator",
+      "collaborator"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": 0.42715106263184066
+    },
+    "D": {
+     "R2": 0.20753536837832132,
+     "R2_beyond_mean": -0.18330962598846656,
+     "kappa_per_axis": [
+      0.0033330990409012307,
+      -0.025449718799083202,
+      -0.028623045425259848,
+      -0.021430235874761682,
+      -0.0032183731644164827,
+      -0.024629123635366536,
+      -0.027985786708299064,
+      -0.05776035535208529,
+      -0.0121278607452872,
+      -0.020945541314090488
+     ]
+    },
+    "F": {
+     "R2": 0.20685692536689515,
+     "R2_beyond_mean": -0.18432267832426907,
+     "rotation_share": 0.5914562279594561,
+     "sym_eigs_min_max": [
+      -0.049342359228876115,
+      0.07189999531037829
+     ]
+    }
+   }
+  }
+ },
+ "olmo3-32b-dpo": {
+  "pre": {
+   "auto": {
+    "roles": 50,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.17869056079037635,
+    "share_of_per_role_shift_in_persona_subspace": 0.18077451467838082,
+    "ceiling_R2": 0.8783211441361057,
+    "ceiling_R2_beyond_mean": 0.8454198851992576,
+    "T": {
+     "R2": 0.5710927483576784,
+     "R2_beyond_mean": -0.18025131930217797
+    },
+    "C": {
+     "R2": 0.8343673587395423,
+     "R2_beyond_mean": 0.5442181436228481,
+     "kappa": 0.24272104409793366,
+     "fixed_point_norm_over_spread": 1.548992295271025,
+     "fixed_point_to_default_over_spread": 1.3465963370978598,
+     "default_norm_over_spread": 0.44062867175842546,
+     "nearest_personas_to_fixed_point": [
+      "evaluator",
+      "cyborg",
+      "strategist",
+      "researcher",
+      "examiner"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": 0.5715562573820409
+    },
+    "D": {
+     "R2": 0.8417822410753201,
+     "R2_beyond_mean": 0.5646221461799562,
+     "kappa_per_axis": [
+      0.329905035916514,
+      0.2369611485934399,
+      0.1249220264637774,
+      0.1414143177670172,
+      0.17817591801411395,
+      0.2899748149458187,
+      0.294543828701959,
+      0.2722263759600642,
+      0.19266020662538827,
+      0.2820717834724511
+     ]
+    },
+    "F": {
+     "R2": 0.8941863685077974,
+     "R2_beyond_mean": 0.7088259112182761,
+     "rotation_share": 0.2940246129453315,
+     "sym_eigs_min_max": [
+      -0.5016898876181479,
+      -0.04779314841715949
+     ]
+    }
+   },
+   "human": {
+    "roles": 50,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.19079963435171896,
+    "share_of_per_role_shift_in_persona_subspace": 0.18602231599693936,
+    "ceiling_R2": 0.8538781780152477,
+    "ceiling_R2_beyond_mean": 0.7849003934695135,
+    "T": {
+     "R2": 0.5994157637790953,
+     "R2_beyond_mean": -0.23561951406968218
+    },
+    "C": {
+     "R2": 0.8290675080294161,
+     "R2_beyond_mean": 0.47275128781917175,
+     "kappa": 0.20711751863138028,
+     "fixed_point_norm_over_spread": 1.6043768095413296,
+     "fixed_point_to_default_over_spread": 1.3753063652153001,
+     "default_norm_over_spread": 0.44062867175842546,
+     "nearest_personas_to_fixed_point": [
+      "evaluator",
+      "advocate",
+      "strategist",
+      "editor",
+      "cyborg"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": 0.6200794211987052
+    },
+    "D": {
+     "R2": 0.8394178310803057,
+     "R2_beyond_mean": 0.5046773098195776,
+     "kappa_per_axis": [
+      0.2875834044904837,
+      0.19025243606367118,
+      0.09605233107166508,
+      0.11718968087560672,
+      0.15473699894552662,
+      0.27772172432019976,
+      0.2579289795943901,
+      0.21830667720523864,
+      0.1560104031088274,
+      0.24393004189473813
+     ]
+    },
+    "F": {
+     "R2": 0.8994063958981711,
+     "R2_beyond_mean": 0.6897146493046813,
+     "rotation_share": 0.3246859632659607,
+     "sym_eigs_min_max": [
+      -0.44364240637293717,
+      -0.03631329628569725
+     ]
+    }
+   },
+   "neutral": {
+    "roles": 50,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.12489773739259485,
+    "share_of_per_role_shift_in_persona_subspace": 0.13430868183319147,
+    "ceiling_R2": 0.8687841516049326,
+    "ceiling_R2_beyond_mean": 0.8112831868744574,
+    "T": {
+     "R2": 0.5476772530212765,
+     "R2_beyond_mean": -0.1428027279491948
+    },
+    "C": {
+     "R2": 0.805354624199367,
+     "R2_beyond_mean": 0.5082244527089352,
+     "kappa": 0.20048329392654837,
+     "fixed_point_norm_over_spread": 1.5764656288375427,
+     "fixed_point_to_default_over_spread": 1.4211434935045475,
+     "default_norm_over_spread": 0.44062867175842546,
+     "nearest_personas_to_fixed_point": [
+      "cyborg",
+      "programmer",
+      "evaluator",
+      "researcher",
+      "strategist"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": 0.4748880837154141
+    },
+    "D": {
+     "R2": 0.8158700995853535,
+     "R2_beyond_mean": 0.5347920176546648,
+     "kappa_per_axis": [
+      0.24174498539249625,
+      0.17751056915850758,
+      0.13507477925491237,
+      0.12170001902264871,
+      0.19687813419069533,
+      0.27116858866734317,
+      0.25134213658696253,
+      0.2175438881307265,
+      0.14727847005389638,
+      0.24260977413862908
+     ]
+    },
+    "F": {
+     "R2": 0.8866335689807888,
+     "R2_beyond_mean": 0.7135773792231748,
+     "rotation_share": 0.24775323089448098,
+     "sym_eigs_min_max": [
+      -0.43777156709472936,
+      -0.03718967540072545
+     ]
+    }
+   }
+  },
+  "resp": {
+   "auto": {
+    "roles": 50,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.2766735487379102,
+    "share_of_per_role_shift_in_persona_subspace": 0.25694550599454535,
+    "ceiling_R2": 0.3521551248748731,
+    "ceiling_R2_beyond_mean": 0.20915599016865505,
+    "T": {
+     "R2": 0.18444285194289123,
+     "R2_beyond_mean": -0.017091115986422878
+    },
+    "C": {
+     "R2": 0.2650950078776032,
+     "R2_beyond_mean": 0.08349115649045702,
+     "kappa": -0.08918721135133231,
+     "fixed_point_norm_over_spread": 2.4166451669745923,
+     "fixed_point_to_default_over_spread": 2.9571424294669715,
+     "default_norm_over_spread": 0.7475618503714739,
+     "nearest_personas_to_fixed_point": [
+      "counselor",
+      "empath",
+      "therapist",
+      "grandparent",
+      "musician"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": -0.6491972487431709
+    },
+    "D": {
+     "R2": 0.20866092408455406,
+     "R2_beyond_mean": 0.013111532694033201,
+     "kappa_per_axis": [
+      -0.09230372099337494,
+      -0.08199757628555653,
+      -0.14486810722550586,
+      -0.12067956807352105,
+      -0.12271939331902175,
+      0.029187321122653542,
+      -0.00019216117357765016,
+      -0.16133786951719364,
+      0.12654467168679598,
+      0.07527863855714655
+     ]
+    },
+    "F": {
+     "R2": 0.2494156427158848,
+     "R2_beyond_mean": 0.06393723185343814,
+     "rotation_share": 0.6009605924023146,
+     "sym_eigs_min_max": [
+      -0.6866135892327905,
+      0.584606901308934
+     ]
+    }
+   },
+   "human": {
+    "roles": 50,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.35231074635458093,
+    "share_of_per_role_shift_in_persona_subspace": 0.22702830835590182,
+    "ceiling_R2": 0.35139286421284877,
+    "ceiling_R2_beyond_mean": 0.2644212810188419,
+    "T": {
+     "R2": 0.12123195750940086,
+     "R2_beyond_mean": -0.009576191030461256
+    },
+    "C": {
+     "R2": 0.19253910663505824,
+     "R2_beyond_mean": 0.07234531331042104,
+     "kappa": -0.11560348278199827,
+     "fixed_point_norm_over_spread": 1.5993754937160054,
+     "fixed_point_to_default_over_spread": 1.8369973416273513,
+     "default_norm_over_spread": 0.7475618503714739,
+     "nearest_personas_to_fixed_point": [
+      "parent",
+      "caregiver",
+      "librarian",
+      "examiner",
+      "negotiator"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": -0.10777083617813793
+    },
+    "D": {
+     "R2": 0.1695013671342801,
+     "R2_beyond_mean": 0.045878313862843356,
+     "kappa_per_axis": [
+      -0.12496428464620866,
+      -0.1006346470102526,
+      -0.13443191517268818,
+      -0.14171711933933742,
+      -0.19067751285911533,
+      -0.04671735440591858,
+      0.004621716356047076,
+      -0.08973801172186804,
+      0.017258533226331713,
+      0.034446043161268265
+     ]
+    },
+    "F": {
+     "R2": 0.2801551681919138,
+     "R2_beyond_mean": 0.1730033771254884,
+     "rotation_share": 0.6131909973975936,
+     "sym_eigs_min_max": [
+      -0.5034906109650018,
+      0.6093576838686771
+     ]
+    }
+   },
+   "neutral": {
+    "roles": 50,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.5464998243371172,
+    "share_of_per_role_shift_in_persona_subspace": 0.2753551453533501,
+    "ceiling_R2": 0.1775525485686268,
+    "ceiling_R2_beyond_mean": -0.021182974556300804,
+    "T": {
+     "R2": 0.19418691218209794,
+     "R2_beyond_mean": -0.026159974196860558
+    },
+    "C": {
+     "R2": 0.17562255072345678,
+     "R2_beyond_mean": -0.04980069803638876,
+     "kappa": 0.05812485437642442,
+     "fixed_point_norm_over_spread": 3.7300643065222023,
+     "fixed_point_to_default_over_spread": 3.471221649092833,
+     "default_norm_over_spread": 0.7475618503714739,
+     "nearest_personas_to_fixed_point": [
+      "lawyer",
+      "scientist",
+      "robot",
+      "researcher",
+      "strategist"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": 0.43444304788611177
+    },
+    "D": {
+     "R2": 0.1385175278996441,
+     "R2_beyond_mean": -0.09705196491089985,
+     "kappa_per_axis": [
+      0.021603656633271833,
+      0.0987995126063994,
+      -0.005179371127607012,
+      0.10730731571018375,
+      0.1334748513171299,
+      0.2696521789686013,
+      0.23297738988514663,
+      0.13241802700540092,
+      0.36407263470238155,
+      0.1986485673569596
+     ]
+    },
+    "F": {
+     "R2": -1.1606738471948566,
+     "R2_beyond_mean": -1.7515028643793245,
+     "rotation_share": 0.5484869328718222,
+     "sym_eigs_min_max": [
+      -0.8210097178939997,
+      0.29700371903988687
+     ]
+    }
+   }
+  }
+ },
+ "olmo31-32b-final": {
+  "pre": {
+   "auto": {
+    "roles": 50,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.1673934971366281,
+    "share_of_per_role_shift_in_persona_subspace": 0.1815555493181938,
+    "ceiling_R2": 0.8874941771837449,
+    "ceiling_R2_beyond_mean": 0.8170576900484561,
+    "T": {
+     "R2": 0.623514085827831,
+     "R2_beyond_mean": -0.1652799640657534
+    },
+    "C": {
+     "R2": 0.8674031957624215,
+     "R2_beyond_mean": 0.5895931468858622,
+     "kappa": 0.2808514534545926,
+     "fixed_point_norm_over_spread": 1.4525876513014928,
+     "fixed_point_to_default_over_spread": 1.3810729472707266,
+     "default_norm_over_spread": 0.4464901716595472,
+     "nearest_personas_to_fixed_point": [
+      "strategist",
+      "evaluator",
+      "cyborg",
+      "researcher",
+      "advocate"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": 0.30991587931982767
+    },
+    "D": {
+     "R2": 0.8637217975734122,
+     "R2_beyond_mean": 0.5781986713213962,
+     "kappa_per_axis": [
+      0.3573528546985174,
+      0.28364770633534114,
+      0.1817917236921349,
+      0.22441349637878855,
+      0.3031957278255396,
+      0.1770702689473283,
+      0.32020010388764203,
+      0.3677766012151506,
+      0.2552673245975553,
+      0.25581101579054816
+     ]
+    },
+    "F": {
+     "R2": 0.911179275073906,
+     "R2_beyond_mean": 0.7250866307236093,
+     "rotation_share": 0.26850512336797333,
+     "sym_eigs_min_max": [
+      -0.5680144464965088,
+      -0.07662536631676668
+     ]
+    }
+   },
+   "human": {
+    "roles": 50,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.18528119770239673,
+    "share_of_per_role_shift_in_persona_subspace": 0.19189102377386,
+    "ceiling_R2": 0.8718455553755153,
+    "ceiling_R2_beyond_mean": 0.7358980237528402,
+    "T": {
+     "R2": 0.6670044073426535,
+     "R2_beyond_mean": -0.19629674461517155
+    },
+    "C": {
+     "R2": 0.8664029006906098,
+     "R2_beyond_mean": 0.5200483774621292,
+     "kappa": 0.23318619303062607,
+     "fixed_point_norm_over_spread": 1.5654624016887446,
+     "fixed_point_to_default_over_spread": 1.4547477248481013,
+     "default_norm_over_spread": 0.4464901716595472,
+     "nearest_personas_to_fixed_point": [
+      "strategist",
+      "evaluator",
+      "advocate",
+      "cyborg",
+      "researcher"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": 0.38180463154083494
+    },
+    "D": {
+     "R2": 0.8677541198392569,
+     "R2_beyond_mean": 0.524902673147813,
+     "kappa_per_axis": [
+      0.29507108232862167,
+      0.23297737091889487,
+      0.13896077876025753,
+      0.1796788678669996,
+      0.30388619549983215,
+      0.13980362927518508,
+      0.25121851219755664,
+      0.2945171668606799,
+      0.21231286782644201,
+      0.21716499169863474
+     ]
+    },
+    "F": {
+     "R2": 0.9180591093671159,
+     "R2_beyond_mean": 0.7056248704893349,
+     "rotation_share": 0.2966529240591404,
+     "sym_eigs_min_max": [
+      -0.5000578320308253,
+      -0.05662457104183407
+     ]
+    }
+   },
+   "neutral": {
+    "roles": 50,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.1127523634416533,
+    "share_of_per_role_shift_in_persona_subspace": 0.1267943677284909,
+    "ceiling_R2": 0.8809664410695894,
+    "ceiling_R2_beyond_mean": 0.7932871368941022,
+    "T": {
+     "R2": 0.6050892282623193,
+     "R2_beyond_mean": -0.1355690897866333
+    },
+    "C": {
+     "R2": 0.8408485749683672,
+     "R2_beyond_mean": 0.5423588015434917,
+     "kappa": 0.20743559815544724,
+     "fixed_point_norm_over_spread": 1.5649309686972364,
+     "fixed_point_to_default_over_spread": 1.5525062347597505,
+     "default_norm_over_spread": 0.4464901716595472,
+     "nearest_personas_to_fixed_point": [
+      "cyborg",
+      "strategist",
+      "researcher",
+      "programmer",
+      "analyst"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": 0.17037200566376112
+    },
+    "D": {
+     "R2": 0.8406707820889228,
+     "R2_beyond_mean": 0.5418475566934386,
+     "kappa_per_axis": [
+      0.2284802587663821,
+      0.19856853454719017,
+      0.16216257715931603,
+      0.17504331848020813,
+      0.26594914533158615,
+      0.17215377801267506,
+      0.23300869636490792,
+      0.28093375748534904,
+      0.1756491503067679,
+      0.1651057261217696
+     ]
+    },
+    "F": {
+     "R2": 0.910001306025286,
+     "R2_beyond_mean": 0.7412080340347416,
+     "rotation_share": 0.27382071861280327,
+     "sym_eigs_min_max": [
+      -0.42937541478418095,
+      -0.059307545437531
+     ]
+    }
+   }
+  },
+  "resp": {
+   "auto": {
+    "roles": 50,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.3188966564728687,
+    "share_of_per_role_shift_in_persona_subspace": 0.3048242415445521,
+    "ceiling_R2": 0.5286184117016277,
+    "ceiling_R2_beyond_mean": -0.3354231319680465,
+    "T": {
+     "R2": 0.6218215629938548,
+     "R2_beyond_mean": -0.361003292535244
+    },
+    "C": {
+     "R2": 0.6423452859330514,
+     "R2_beyond_mean": -0.2871417188388208,
+     "kappa": -0.08051570101322271,
+     "fixed_point_norm_over_spread": 4.965579960448099,
+     "fixed_point_to_default_over_spread": 5.235289439124372,
+     "default_norm_over_spread": 0.527665333314114,
+     "nearest_personas_to_fixed_point": [
+      "playwright",
+      "novelist",
+      "competitor",
+      "grandparent",
+      "actor"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": -0.4718865081846099
+    },
+    "D": {
+     "R2": 0.6219158453929433,
+     "R2_beyond_mean": -0.3606639853642606,
+     "kappa_per_axis": [
+      -0.11587482222315579,
+      -0.03416465232166013,
+      -0.03591077044235637,
+      -0.06333055315502027,
+      -0.21768368769496557,
+      -0.12719982947115321,
+      0.11651767377841066,
+      0.026215098783290515,
+      -0.07151930787763873,
+      0.07348782093562015
+     ]
+    },
+    "F": {
+     "R2": 0.4748256646884995,
+     "R2_beyond_mean": -0.8900178581634626,
+     "rotation_share": 0.5623901933526751,
+     "sym_eigs_min_max": [
+      -0.3869491471928506,
+      0.7199701581329214
+     ]
+    }
+   },
+   "human": {
+    "roles": 50,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.2277329976964098,
+    "share_of_per_role_shift_in_persona_subspace": 0.2313111410262679,
+    "ceiling_R2": 0.008844138154787684,
+    "ceiling_R2_beyond_mean": -0.2830360356075887,
+    "T": {
+     "R2": 0.21241217970412962,
+     "R2_beyond_mean": -0.0950428792887601
+    },
+    "C": {
+     "R2": 0.31172790822958407,
+     "R2_beyond_mean": 0.04304328522597156,
+     "kappa": -0.08860739397841368,
+     "fixed_point_norm_over_spread": 1.595735533061204,
+     "fixed_point_to_default_over_spread": 1.6778528076256654,
+     "default_norm_over_spread": 0.527665333314114,
+     "nearest_personas_to_fixed_point": [
+      "mentor",
+      "parent",
+      "strategist",
+      "editor",
+      "programmer"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": 0.0057080688225194
+    },
+    "D": {
+     "R2": 0.305446604417717,
+     "R2_beyond_mean": 0.034309913740807496,
+     "kappa_per_axis": [
+      -0.11825877689215591,
+      -0.08097693231059537,
+      -0.012822812223716121,
+      -0.02475383358529659,
+      -0.2718104836344943,
+      -0.044461181192570455,
+      -0.035142940469830034,
+      0.04938063965484025,
+      -0.048672950733685584,
+      -0.012229849665989861
+     ]
+    },
+    "F": {
+     "R2": 0.16125551368280855,
+     "R2_beyond_mean": -0.16616985892356007,
+     "rotation_share": 0.539992912520423,
+     "sym_eigs_min_max": [
+      -0.3279351103728666,
+      0.6474060107384877
+     ]
+    }
+   },
+   "neutral": {
+    "roles": 50,
+    "k": 10,
+    "share_of_mean_shift_in_persona_subspace": 0.5228062680310834,
+    "share_of_per_role_shift_in_persona_subspace": 0.2957984593001741,
+    "ceiling_R2": -0.3630229878934741,
+    "ceiling_R2_beyond_mean": -0.6065850954051242,
+    "T": {
+     "R2": 0.12515083330440557,
+     "R2_beyond_mean": -0.08705227974532304
+    },
+    "C": {
+     "R2": 0.0877974270980797,
+     "R2_beyond_mean": -0.13346611531678487,
+     "kappa": -0.038494909962138286,
+     "fixed_point_norm_over_spread": 3.5880820752879794,
+     "fixed_point_to_default_over_spread": 3.9632259411608906,
+     "default_norm_over_spread": 0.527665333314114,
+     "nearest_personas_to_fixed_point": [
+      "grandparent",
+      "counselor",
+      "therapist",
+      "empath",
+      "musician"
+     ],
+     "cos_fixedpoint_dir_with_default_dir": -0.6745860073463222
+    },
+    "D": {
+     "R2": 0.08305851714040802,
+     "R2_beyond_mean": -0.13935449364427677,
+     "kappa_per_axis": [
+      -0.0459332176236054,
+      -0.051605573592021566,
+      -0.03107420766623687,
+      -0.04656455912024789,
+      -0.06954851595681898,
+      0.046634042250293925,
+      0.07518892979459404,
+      0.016601095689528386,
+      -0.04651518691941814,
+      0.028568630764526055
+     ]
+    },
+    "F": {
+     "R2": -0.45705325541591213,
+     "R2_beyond_mean": -0.8104755920300608,
+     "rotation_share": 0.597663455222109,
+     "sym_eigs_min_max": [
+      -0.3638599626069884,
+      0.5082180588988069
+     ]
+    }
+   }
+  }
+ }
+}
