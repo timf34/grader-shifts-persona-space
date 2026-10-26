@@ -192,7 +192,9 @@ def phase_gen(spec, cfg, stage: str, base_url: str, concurrency: int, parallel: 
     order = sorted(jobs, key=lambda j: (not j.bench.startswith(("rpt_", "steer_base")), j.bench, j.condition))
     with ThreadPoolExecutor(max_workers=parallel) as pool:
         total = sum(pool.map(run, order))
-    print(f"[gen] {stage}: {total} new generations", flush=True)
+        # second, resume-only pass: regenerates any record lost to a corrupted write (network FS)
+        refill = sum(pool.map(run, order))
+    print(f"[gen] {stage}: {total} new generations (+{refill} refilled)", flush=True)
 
 
 # ---------------------------------------------------------------------------

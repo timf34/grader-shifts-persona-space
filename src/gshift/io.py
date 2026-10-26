@@ -61,15 +61,25 @@ def roles_present(model_key: str, condition: str) -> list[str]:
 
 
 def read_jsonl(path: str | Path) -> list[dict[str, Any]]:
+    """Rows of a JSONL file. Lines that do not parse are SKIPPED with a warning (seen 2026-10-26 on a
+    MooseFS/FUSE /workspace: a write left a run of NUL bytes that destroyed one record); a resumed
+    run regenerates the missing ids."""
     path = Path(path)
     if not path.exists():
         return []
-    out = []
-    with open(path) as f:
-        for line in f:
-            line = line.strip()
-            if line:
+    out, bad = [], 0
+    with open(path, "rb") as f:
+        for raw in f:
+            line = raw.replace(b"\x00", b"").strip()
+            if not line:
+                continue
+            try:
                 out.append(json.loads(line))
+            except ValueError:
+                bad += 1
+    if bad:
+        import warnings
+        warnings.warn(f"read_jsonl: skipped {bad} unparseable line(s) in {path}")
     return out
 
 
