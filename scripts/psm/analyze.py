@@ -30,7 +30,7 @@ from gshift.psm.score import load_scored, score_row, select_steering  # noqa: E4
 def download(model: str, stage: str):
     from huggingface_hub import snapshot_download
 
-    pats = [f"psm/{model}/gen/**", f"psm/{model}/hf/acts_{stage}.npz", f"psm/{model}/hf/trait_*",
+    pats = [f"psm/{model}/gen/**", f"psm/{model}/hf/acts_{stage}.npz", f"psm/{model}/hf/trait_*", f"psm/{model}/hf/vignette_feats.npz",
             f"psm/{model}/*.json"]
     snapshot_download(os.environ["HF_DATASET_REPO"], repo_type="dataset", allow_patterns=pats,
                       local_dir=str(ROOT / "outputs" / "_hf_psm"))
@@ -108,6 +108,9 @@ def analyse(model: str, stage: str, cfg: dict) -> dict:
     if acts.exists() and tz.exists():
         for L in (32, 36, 40):
             out[f"projection_L{L}"] = AN.projections(acts, tz, L, personas, ctxs, ta["_mats"])
+    vf = d / "hf" / "vignette_feats.npz"
+    if vf.exists():
+        out["trait_negation_check"] = negation_check(vf, cfg)
     ts = d / "hf" / "trait_stats.json"
     if ts.exists():
         out["trait_stats"] = json.loads(ts.read_text())
@@ -116,6 +119,28 @@ def analyse(model: str, stage: str, cfg: dict) -> dict:
         t = json.loads(tf.read_text())
         out["throughput"] = {"generations": sum(x["n"] for x in t), "gen_tokens": sum(x["gen_tokens"] for x in t)}
     return out
+
+
+def negation_check(vf: Path, cfg: dict) -> dict:
+    """Robustness: the direction rebuilt from negation-BALANCED train pairs (both or neither
+    ending contains a negation word), its cosine with the main direction, and held-out accuracy."""
+    import re
+    from gshift.psm.vignettes import load_vignettes, trait_directions
+    neg = re.compile(r"\b(no|not|never|n't|nothing|none)\b", re.I)
+    vig = {v["id"]: v for v in load_vignettes(cfg["vignettes_file"])}
+    z = np.load(vf)
+    ids = [str(i) for i in z["ids"]]
+    bal = np.array([bool(neg.search(vig[i]["accurate"])) == bool(neg.search(vig[i]["misrepresent"])) for i in ids])
+    splits = [str(s) for s in z["splits"]]
+    layers = [int(x) for x in z["layers"]]
+    feats = {k: z[k] for k in z.files}
+    full = trait_directions(feats, splits, layers)
+    sub_splits = [s if (s == "heldout" or b) else "excluded" for s, b in zip(splits, bal)]
+    sub = trait_directions(feats, sub_splits, layers)
+    return {"n_balanced_train": int(sum(s == "train" for s in sub_splits)),
+            "by_layer": {str(L): {"cos_with_main": float(full["dirs"][L] @ sub["dirs"][L]),
+                                  "heldout_sign_acc_balanced_dir": sub["stats"][L]["heldout_pair_sign_acc"]}
+                         for L in layers}}
 
 
 def main():

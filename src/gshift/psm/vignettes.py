@@ -71,7 +71,7 @@ def trait_directions(feats: dict[str, np.ndarray], splits: list[str], layers: li
     acc = feats["accurate" if rep == "ending" else "last_accurate"].astype(np.float64)
     mis = feats["misrepresent" if rep == "ending" else "last_misrepresent"].astype(np.float64)
     tr = np.array([s == "train" for s in splits])
-    ho = ~tr
+    ho = np.array([s == "heldout" for s in splits])
     dirs, stats = {}, {}
     for j, L in enumerate(layers):
         d = (mis[tr, j] - acc[tr, j]).mean(0)
