@@ -33,122 +33,126 @@ def load(stage, models):
 
 
 def fig_profiles(res, stage, od):
-    """Fig 1: persona misreport rates by context (conflict items)."""
-    ms = list(res)
-    fig, axes = plt.subplots(1, len(ms), figsize=(4.2 * len(ms), 6.5), sharey=True, squeeze=False)
+    """Fig 1: dilemma panel. Each dot = (persona, dimension): x = p_base - p_default(base),
+    y = p_ctx - p_default(ctx). Slope < 1 = personas move toward the default Assistant's choices."""
+    ms = [m for m in res if "fc_profiles" in res[m]]
+    if not ms:
+        return
+    fig, axes = plt.subplots(1, len(ms), figsize=(3.8 * len(ms), 3.9), sharey=True, squeeze=False)
     for ax, m in zip(axes[0], ms):
-        ta = res[m]["track_a"]
-        ps = ta["personas"]
-        order = sorted(ps, key=lambda p: ta["contexts"]["base"]["rates"][p]["p"] or 0)
-        for k, (c, e) in enumerate(ta["contexts"].items()):
-            y = np.arange(len(order)) + (k - 1.5) * 0.15
-            x = [e["rates"][p]["p"] for p in order]
-            lo = [e["rates"][p]["ci95"][0] for p in order]
-            hi = [e["rates"][p]["ci95"][1] for p in order]
-            ax.errorbar(x, y, xerr=[np.subtract(x, lo), np.subtract(hi, x)], fmt="o", ms=3.5, lw=0.8,
-                        color=CTX_COL.get(c, "k"), label=c)
-        ax.set_yticks(np.arange(len(order)))
-        ax.set_yticklabels(order, fontsize=8)
-        ax.set_xlim(-0.03, 1.03)
-        ax.set_xlabel("misreport rate (conflict items)")
+        fp = res[m]["fc_profiles"]["rates"]
+        ps = list(fp["base"])
+        base = np.array([fp["base"][p] for p in ps], float)
+        xd = base[1:] - base[0]
+        for c in ("auto", "human", "neutral"):
+            if c not in fp:
+                continue
+            M = np.array([fp[c][p] for p in ps], float)
+            yd = M[1:] - M[0]
+            ok = np.isfinite(xd) & np.isfinite(yd)
+            ax.scatter(xd[ok], yd[ok], s=9, alpha=0.55, color=CTX_COL[c], label=c)
+            if ok.sum() > 3:
+                b = np.polyfit(xd[ok], yd[ok], 1)[0]
+                xx = np.linspace(-1, 1, 10)
+                ax.plot(xx, b * xx, color=CTX_COL[c], lw=1, label=f"{c} slope {b:.2f}")
+        ax.plot([-1, 1], [-1, 1], "k--", lw=0.7)
+        ax.set_xlim(-1, 1); ax.set_ylim(-1, 1)
         ax.set_title(LABEL.get(m, m), fontsize=10)
-        ax.grid(axis="x", alpha=0.3)
-    axes[0][0].legend(fontsize=8, loc="lower right")
-    fig.suptitle("Persona decisions on the reporting task, by context", fontsize=11)
+        ax.set_xlabel("persona − default, no statement")
+        ax.legend(fontsize=6, loc="upper left")
+    axes[0][0].set_ylabel("persona − default, with statement")
+    fig.suptitle("Dilemma choices: do personas move toward the default Assistant under grading?", fontsize=10)
     fig.tight_layout()
     fig.savefig(od / f"{stage}_1_profiles.png", dpi=150)
     plt.close(fig)
 
 
 def fig_convergence(res, stage, od):
-    """Fig 2: between-persona spread ratio vs base (noise-free cross-sample SD and MAD to default)."""
-    ms = list(res)
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
-    for j, (key, title) in enumerate([("convergence_xsplit_ratio", "between-persona SD (cross-sample)"),
-                                      ("convergence_mad_ratio", "mean |p - p_default|")]):
-        ax = axes[j]
-        for i, m in enumerate(ms):
-            ctx = res[m]["track_a"]["contexts"]
-            for k, c in enumerate([c for c in ("auto", "human", "neutral") if c in ctx]):
-                v = ctx[c].get(key)
-                ci = ctx[c].get(key + "_ci95", [np.nan, np.nan])
-                if v is None:
-                    continue
-                x = i + (k - 1) * 0.2
-                ax.errorbar([x], [v], yerr=[[v - ci[0]], [ci[1] - v]], fmt="o", color=CTX_COL[c],
-                            label=c if i == 0 else None)
-        ax.axhline(1, color="k", lw=0.8, ls="--")
-        ax.set_xticks(range(len(ms)))
-        ax.set_xticklabels([LABEL.get(m, m) for m in ms], rotation=20, fontsize=8)
-        ax.set_ylabel("ratio vs base (< 1 = personas converge)")
-        ax.set_title(title, fontsize=10)
-    axes[0].legend(fontsize=8)
+    """Fig 2: dilemma panel convergence ratio vs base (mean |p - p_default|, validation items, all dims)."""
+    ms = [m for m in res if "forced_choice" in res[m]]
+    fig, ax = plt.subplots(figsize=(7, 3.8))
+    for i, m in enumerate(ms):
+        cells = res[m]["forced_choice"]["cells"]["constrained"]
+        for k, c in enumerate(("auto", "human", "neutral")):
+            e = cells.get(c, {}).get("none", {}).get("convergence", {}).get("base_none", {}).get("validation", {}).get("all_dimensions")
+            if not e:
+                continue
+            v, ci = e["ratio"], e["ratio_ci95"]
+            ax.errorbar([i + (k - 1) * 0.22], [v], yerr=[[v - ci[0]], [ci[1] - v]], fmt="o", color=CTX_COL[c],
+                        label=c if i == 0 else None, capsize=2)
+    ax.axhline(1, color="k", lw=0.8, ls="--")
+    ax.set_xticks(range(len(ms)))
+    ax.set_xticklabels([LABEL.get(m, m) for m in ms], fontsize=8)
+    ax.set_ylabel("persona spread around default\n(context / no statement)")
+    ax.set_title("Dilemma panel: < 1 = personas' decisions converge on the default Assistant's", fontsize=10)
+    ax.legend(fontsize=8)
     fig.tight_layout()
     fig.savefig(od / f"{stage}_2_convergence.png", dpi=150)
     plt.close(fig)
 
 
 def fig_landscape(res, stage, od, layer=36):
-    """Fig 3: activation-vs-behaviour Mantel rho by context, and activation spread ratios."""
-    ms = [m for m in res if f"landscape_L{layer}" in res[m]]
+    """Fig 3: dilemma prompts: activation spread ratio vs base and activation-vs-behaviour Mantel rho."""
+    key = f"landscape_fc_L{layer}"
+    ms = [m for m in res if key in res[m]]
     if not ms:
         return
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(10, 3.8))
     for i, m in enumerate(ms):
-        L = res[m][f"landscape_L{layer}"]["contexts"]
-        for k, c in enumerate(L):
+        L = res[m][key]["contexts"]
+        for k, c in enumerate(("base", "auto", "human", "neutral")):
+            if c not in L:
+                continue
             x = i + (k - 1.5) * 0.15
             mt = L[c].get("mantel_act_vs_behaviour")
             if mt:
-                axes[0].plot([x], [mt["rho"]], "o", color=CTX_COL.get(c, "k"), label=c if i == 0 else None)
-            axes[1].plot([x], [L[c]["pairwise_ratio_vs_base"]], "o", color=CTX_COL.get(c, "k"))
-    for ax, t, yl in ((axes[0], f"activation vs behaviour distances (L{layer})", "Mantel Spearman rho"),
-                      (axes[1], f"persona activation spread (L{layer}, assay prompts)", "pairwise distance / base")):
+                axes[0].plot([x], [mt["rho"]], "o", color=CTX_COL[c], label=c if i == 0 else None)
+            axes[1].plot([x], [L[c]["pairwise_ratio_vs_base"]], "o", color=CTX_COL[c])
+    for ax, t, yl in ((axes[0], f"persona activation distances vs choice-profile distances (L{layer})", "Mantel Spearman ρ"),
+                      (axes[1], f"persona activation spread on dilemma prompts (L{layer})", "pairwise distance / no statement")):
         ax.set_xticks(range(len(ms)))
-        ax.set_xticklabels([LABEL.get(m, m) for m in ms], rotation=20, fontsize=8)
-        ax.set_title(t, fontsize=10)
+        ax.set_xticklabels([LABEL.get(m, m) for m in ms], fontsize=8)
+        ax.set_title(t, fontsize=9)
         ax.set_ylabel(yl)
     axes[0].axhline(0, color="k", lw=0.6)
     axes[1].axhline(1, color="k", lw=0.6, ls="--")
-    axes[0].legend(fontsize=8)
+    axes[0].legend(fontsize=7)
     fig.tight_layout()
     fig.savefig(od / f"{stage}_3_landscape.png", dpi=150)
     plt.close(fig)
 
 
 def fig_steering(res, stage, od):
-    """Fig 4: misreport vs signed trait strength, by context; random-direction points."""
-    ms = [m for m in res if "track_b" in res[m]]
-    if not ms:
+    """Fig 4: reporting task, default Assistant: misreport under each steering condition by context,
+    pre-registered and exploratory settings; hollow markers = condition fails the competence guard."""
+    rows = []
+    for m in res:
+        for key, tag in (("track_b", "pre-registered"), ("track_b_exploratory", "exploratory")):
+            if key in res[m]:
+                rows.append((m, key, tag))
+    if not rows:
         return
-    fig, axes = plt.subplots(1, len(ms), figsize=(4.2 * len(ms), 4), sharey=True, squeeze=False)
-    for ax, m in zip(axes[0], ms):
-        tb = res[m]["track_b"]
+    fig, axes = plt.subplots(1, len(rows), figsize=(3.6 * len(rows), 3.9), sharey=True, squeeze=False)
+    for ax, (m, key, tag) in zip(axes[0], rows):
+        tb = res[m][key]
         L, s = tb["layer"], tb["strength"]
-        for c, e in tb["contexts"].items():
-            xs, ys, lo, hi = [], [], [], []
-            for x in (-s, -s / 2, 0, s / 2, s):
-                key = "none" if x == 0 else f"trait@L{L}_{'+' if x > 0 else '-'}{abs(x):g}"
-                if key == "none":
-                    v, ci = e["none"]["rate"], e["none"]["ci95"]
-                elif key in e:
-                    v = e[key]["rate"]
-                    ci = [v - (e[key]["diff_vs_none"] - e[key]["diff_ci95"][0]), v + (e[key]["diff_ci95"][1] - e[key]["diff_vs_none"])]
-                else:
+        order = ["none", f"trait@L{L}_+{s:g}", f"trait@L{L}_-{s:g}"] + \
+                [f"random{k}@L{L}_{sg}{s:g}" for k in range(3) for sg in "+-"]
+        labels = ["none", "trait +", "trait −"] + [f"r{k}{sg}" for k in range(3) for sg in "+−"]
+        for k, (c, e) in enumerate(tb["contexts"].items()):
+            q = e.get("conditions", {})
+            for j, cond in enumerate(order):
+                v = q.get(cond)
+                if not v or v.get("rate") is None:
                     continue
-                xs.append(x); ys.append(v); lo.append(ci[0]); hi.append(ci[1])
-            ax.errorbar(xs, ys, yerr=[np.subtract(ys, lo), np.subtract(hi, ys)], fmt="-o", color=CTX_COL.get(c, "k"),
-                        label=c, ms=4, lw=1.2)
-            for k in range(3):
-                for x in (s, -s):
-                    key = f"random{k}@L{L}_{'+' if x > 0 else '-'}{abs(x):g}"
-                    if key in e:
-                        ax.plot([x], [e[key]["rate"]], "x", color=CTX_COL.get(c, "k"), alpha=0.6)
-        ax.set_title(f"{LABEL.get(m, m)}\n(trait direction, layer {L}; x = random)", fontsize=9)
-        ax.set_xlabel("signed strength (+ = toward 'misrepresent')")
-        ax.grid(alpha=0.3)
-    axes[0][0].set_ylabel("misreport rate, default Assistant")
-    axes[0][0].legend(fontsize=8)
+                ax.plot([j + (k - 1) * 0.22], [v["rate"]], "o", color=CTX_COL.get(c, "k"),
+                        mfc=CTX_COL.get(c, "k") if v["competent"] else "white", label=c if j == 0 else None)
+        ax.set_xticks(range(len(order)))
+        ax.set_xticklabels(labels, rotation=60, fontsize=7)
+        ax.set_title(f"{LABEL.get(m, m)}\n{tag}: L{L}, strength {s:g}", fontsize=9)
+        ax.grid(axis="y", alpha=0.3)
+    axes[0][0].set_ylabel("misreport rate (default Assistant)")
+    axes[0][0].legend(fontsize=7)
     fig.tight_layout()
     fig.savefig(od / f"{stage}_4_steering.png", dpi=150)
     plt.close(fig)
