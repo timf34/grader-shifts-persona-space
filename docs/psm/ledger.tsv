@@ -1,0 +1,3 @@
+utc_time	event	pods	rate_usd_per_h	note
+2026-10-26T04:49:22Z	launch 4 H200 pods	gs-psm-q36,gs-psm-q38,gs-psm-dpo,gs-psm-fin	21.16	prep (weights+venv), then pilot
+2026-10-26T04:53:01Z	pods up	gs-psm-q36(H200)=qwen3.6-27b, gs-psm-dpo(H100-SXM)=qwen3.8-27b, gs-psm-q38(H200)=olmo3-32b-dpo, gs-psm-fin(H200)=olmo31-32b-final	18.56	pod names are labels only: OLMo needs H200 KV room, so the H100 runs Qwen3.8

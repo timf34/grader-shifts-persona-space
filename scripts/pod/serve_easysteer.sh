@@ -35,6 +35,7 @@ s = yaml.safe_load(open(os.environ.get("STEERING_CONFIG") or f"{repo}/configs/st
 print(m["hf_id"], m["revision"], s["max_model_len"])
 PY
 )"
+MAXLEN="${MAX_MODEL_LEN:-$MAXLEN}"          # override: configs/psm.yaml generation.<family>.max_model_len
 MAX_NUM_SEQS="${MAX_NUM_SEQS:-128}"
 GPU_MEM_UTIL="${GPU_MEM_UTIL:-0.90}"
 TP="${TP:-1}"
