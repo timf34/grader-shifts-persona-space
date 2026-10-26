@@ -84,7 +84,8 @@ every cell) and convergence (H2), not pure translation (H1).
 
 What this shows:
 - **Bigger shift in 3.5.** It is the largest in Qwen3.5 in every representation. On answer
-  and reasoning tokens it shrinks with each later release (about 2–3× from 3.5 to 3.8).
+  and reasoning tokens, 3.6 and 3.8 show half of 3.5's shift or less (answers: 0.075 →
+  0.037 → 0.025; reasoning: 0.091 → 0.041 → 0.040).
 - **More convergence in 3.5.** It is strongest in Qwen3.5, especially in reasoning tokens
   (separation 0.43 → 0.71 → 0.94 across the three releases).
 - **Answer length explains part of it.** Qwen3.5 also cuts its answers the most, and in the
@@ -111,7 +112,64 @@ contrast are in `qwen3.5-27b/analysis/vectors/` on HF.
 
 ## Paired model comparison
 
-<!-- COMPARISON -->
+`scripts/05_compare_models.py` was run for discovery roles × discovery questions at layer 36.
+The paired bootstrap resamples the same roles and questions in both models. Raw coordinates
+are never compared across models. Results are in
+[`comparison_qwen3.5_vs_qwen3.6/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/comparison_qwen3.5_vs_qwen3.6)
+and [`comparison_qwen3.5_vs_qwen3.8/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/comparison_qwen3.5_vs_qwen3.8)
+on HF.
+
+**Size of the shared shift (g/|act|): newer model minus Qwen3.5, mean [95% CI]**
+
+| contrast (open-ended questions) | rep | Qwen3.6 − Qwen3.5 | Qwen3.8 − Qwen3.5 |
+|---|---|---|---|
+| automatically − baseline | `pre` | −0.116 [−0.125, −0.106] | −0.049 [−0.066, −0.032] |
+| | `resp` | −0.039 [−0.050, −0.031] | −0.051 [−0.062, −0.041] |
+| | `reason` | −0.050 [−0.055, −0.045] | −0.051 [−0.056, −0.045] |
+| human − baseline | `pre` | −0.071 [−0.078, −0.063] | −0.016 [−0.029, −0.004] |
+| | `resp` | −0.010 [−0.012, −0.008] | −0.012 [−0.015, −0.010] |
+| automatically − human | `pre` | −0.074 [−0.079, −0.068] | −0.035 [−0.044, −0.026] |
+| | `resp` | −0.030 [−0.040, −0.022] | −0.036 [−0.047, −0.028] |
+
+**How shared the shift is across personas (mean leave-one-role-out cosine): newer − Qwen3.5**
+
+| contrast | rep | Qwen3.6 − Qwen3.5 | Qwen3.8 − Qwen3.5 |
+|---|---|---|---|
+| automatically − baseline | `pre` | +0.013 [+0.009, +0.017] | −0.004 [−0.011, +0.002] |
+| | `resp` | −0.053 [−0.079, −0.033] | −0.075 [−0.124, −0.037] |
+| | `reason` | −0.015 [−0.031, 0.000] | −0.034 [−0.067, −0.011] |
+| human − baseline | `resp` | −0.172 [−0.229, −0.124] | −0.220 [−0.282, −0.160] |
+| | `reason` | −0.084 [−0.118, −0.051] | −0.161 [−0.216, −0.116] |
+
+**Persona geometry across models (no coordinate alignment)**
+
+| | rep | 3.5 vs 3.6 | 3.5 vs 3.8 |
+|---|---|---|---|
+| RSA of baseline persona distances | `pre` | 0.96 | 0.87 |
+| | `resp` | 0.95 | 0.90 |
+| | `reason` | 0.83 | 0.79 |
+| correlation of per-role shift directions (auto − baseline) | `pre` | 0.93 | 0.85 |
+| | `resp` | 0.66 | 0.48 |
+| | `reason` | 0.63 | 0.60 |
+
+What this shows:
+- **The shift is reliably largest in Qwen3.5.** This holds for every contrast and
+  representation; no CI crosses zero. In the prompt representation (`pre`), 3.6 has the
+  smallest shift and 3.8 sits between, so the order there does not follow release order.
+- **Newer models' shifts are more persona-specific.** On answer and reasoning tokens, the
+  grading shift is less shared across personas in 3.6 and 3.8 than in 3.5. The gap is
+  largest for "evaluated by a human". So later post-training makes the response to grading
+  depend more on which persona is speaking.
+- **The persona landscape is largely kept.** Baseline persona distances correlate
+  0.87–0.96 across models in `pre` and `resp`. They correlate less in reasoning
+  (0.79–0.83), which is also where the Assistant Axis emerges between 3.5 and 3.6.
+- **Per-role shifts transfer at the prompt but not in the outputs.** Which roles move
+  together under grading is very similar at the prompt (0.85–0.93) but much less so in
+  answers and reasoning (0.48–0.66).
+
+The comparison script's own caveat applies too. A difference between releases is
+established, but attributing it to RLVR would need training information or controlled
+checkpoints (see "Why Qwen3.5" above).
 
 ## Figures
 
