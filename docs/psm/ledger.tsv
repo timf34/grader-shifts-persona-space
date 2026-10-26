@@ -3,3 +3,6 @@ utc_time	event	pods	rate_usd_per_h	note
 2026-10-26T04:53:01Z	pods up	gs-psm-q36(H200)=qwen3.6-27b, gs-psm-dpo(H100-SXM)=qwen3.8-27b, gs-psm-q38(H200)=olmo3-32b-dpo, gs-psm-fin(H200)=olmo31-32b-final	18.56	pod names are labels only: OLMo needs H200 KV room, so the H100 runs Qwen3.8
 2026-10-26T05:00:46Z	rates confirmed	3x H200 @5.29 + 1x H100 @3.99	19.86	pods created ~04:50-04:53Z; pilots launch after warm-up
 2026-10-26T05:12:27Z	terminated gs-psm-q36 (slow network, lost race)	gs-psm-q36b(H200, US-NC-1)=qwen3.6-27b	19.86	q36 billed ~25 min (~$2.2)
+2026-10-26T06:23:40Z	qwen3.6 pilot crashed (MooseFS NUL-run corruption, 1 record); relaunched as chain2 EXT_ONLY=all on gs-psm-q36b	-	19.86	fix: tolerant read_jsonl + refill pass (94ffdb7)
+2026-10-26T06:52:03Z	status	q38 (OLMo DPO) + dpo (Qwen3.8) in confirm; fin ext sweep; q36b pilot completion	19.86	~2h elapsed since pods up: ~$40 so far incl. losing q36 pod
+2026-10-26T16:53:32Z	terminated gs-psm-q36b, gs-psm-dpo, gs-psm-q38, gs-psm-fin (data verified on HF)	-	0	total GPU spend ~$147
