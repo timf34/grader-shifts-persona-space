@@ -146,7 +146,9 @@ def phase_gen(spec, cfg, stage: str, base_url: str, concurrency: int, parallel: 
     gen = P.gen_cfg(cfg, spec.key)
     choice = None
     if stage == "confirm":
-        choice = json.loads((d / "steer_choice.json").read_text())["choice"]
+        sc = json.loads((d / "steer_choice.json").read_text())
+        choice = dict(sc["choice"])
+        choice["exploratory"] = sc.get("exploratory")
     jobs = P.stage_jobs(cfg, stage, choice, transfer and any(k.startswith("traitdpo@") for k in man["directions"]))
     if only:
         jobs = [j for j in jobs if any(j.bench.startswith(o) for o in only)]

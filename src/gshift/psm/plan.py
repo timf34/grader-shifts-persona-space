@@ -137,6 +137,14 @@ def confirm_steer_jobs(cfg: dict, choice: dict[str, Any], transfer: bool = False
     conds += [cond_name(f"random{k}", L, sg * s) for k in range(int(tb["random"]["n"])) for sg in (1, -1)]
     if transfer:
         conds += [cond_name("traitdpo", L, sg * s) for sg in (1, -1)]
+    ex = choice.get("exploratory")
+    if ex:   # PREREG 6.8: exploratory (layer, strength) from the discovery sweep, both signs + randoms
+        EL, ES = int(ex["layer"]), float(ex["strength"])
+        extra = [cond_name("trait", EL, sg * ES) for sg in (1, -1)]
+        extra += [cond_name(f"random{k}", EL, sg * ES) for k in range(int(tb["random"]["n"])) for sg in (1, -1)]
+        if transfer:
+            extra += [cond_name("traitdpo", EL, sg * ES) for sg in (1, -1)]
+        conds += [c for c in extra if c not in conds]
     jobs = []
     for ctx in tb["contexts"]:
         pr = steer_prompts(cfg, "confirm", ctx, int(tb["samples"]))

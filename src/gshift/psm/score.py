@@ -117,4 +117,31 @@ def select_steering(steer_dir: Path, cfg: dict) -> dict[str, Any]:
                   f"best L{best['layer']} s{best['strength']}: range {best['range']:.3f} {best['range_ci95']}, "
                   f"band {best['random_band']:.3f}") + "; fallback")
     return {"choice": choice, "gate_passed": gate, "reason": reason, "best": best, "table": table,
-            "none": summ.get("none")}
+            "none": summ.get("none"), "exploratory": exploratory_choice(summ, sel)}
+
+
+def exploratory_choice(summ: dict[str, dict], sel: dict) -> dict[str, Any] | None:
+    """EXPLORATORY (PREREG 6.8, added after seeing Qwen3.8's sweep): the single valid trait condition
+    with the largest one-sided effect |misreport - none| beyond the random band at the same layer and
+    |strength| (max |random - none| over random directions and both signs). Confirmation then runs that
+    (layer, |strength|) at BOTH signs plus the random directions, on held-out items."""
+    if "none" not in summ:
+        return None
+    m0 = summ["none"]["misreport"]
+    best = None
+    for c, st in summ.items():
+        d, L, s = parse_cond(c)
+        if d != "trait" or not (st["valid"] >= sel["min_valid"] and st["control_acc"] >= sel["min_control_acc"]):
+            continue
+        eff = st["misreport"] - m0
+        rnd = [abs(v["misreport"] - m0) for k, v in summ.items()
+               if parse_cond(k)[0] and parse_cond(k)[0].startswith("random") and parse_cond(k)[1] == L
+               and abs(abs(parse_cond(k)[2]) - abs(s)) < 1e-9]
+        band = max(rnd) if rnd else float("nan")
+        exc = abs(eff) - band
+        if np.isfinite(exc) and (best is None or exc > best["excess"]):
+            best = {"condition": c, "layer": L, "strength": abs(s), "sign": 1 if s > 0 else -1, "effect": eff,
+                    "random_band": band, "excess": exc}
+    if best is None or best["excess"] <= 0:
+        return None
+    return best
