@@ -13,6 +13,8 @@ model has its own top-level folder:
 |---|---|---|
 | [`qwen3.6-27b/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/qwen3.6-27b) | Qwen3.6-27B | Q1 grid (120k generations, activations, scores, analysis, figures) + Q2 steering (`steering/`) + context probes (`probes/`) |
 | [`qwen3.8-27b/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/qwen3.8-27b) | Qwen3.8-27B | same as above |
+| [`qwen3.5-27b/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/qwen3.5-27b) | Qwen3.5-27B (same pretraining, earlier post-training) | Q1 grid only (120k generations, activations, scores, analysis, figures) |
+| [`comparison_qwen3.5_vs_qwen3.6/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/comparison_qwen3.5_vs_qwen3.6), [`comparison_qwen3.5_vs_qwen3.8/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/comparison_qwen3.5_vs_qwen3.8) | Qwen3.5 vs 3.6, Qwen3.5 vs 3.8 | paired-bootstrap model comparisons (`scripts/05_compare_models.py`) |
 | [`olmo3-32b-dpo/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/olmo3-32b-dpo) | Olmo-3-32B-Think-DPO (before RLVR) | OLMo RL-stage comparison (15.3k generations, activations, scores, analysis, figures) |
 | [`olmo31-32b-rl100/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/olmo31-32b-rl100) | Olmo-3.1-32B-Think `step_0100` (a little RLVR) | same as above |
 | [`olmo31-32b-final/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/olmo31-32b-final) | Olmo-3.1-32B-Think (full RLVR) | same as above |
@@ -27,6 +29,7 @@ Run logs for every pod job are under `logs/`.
 
 **Experiments**
 - **Q1, Qwen3.6 / Qwen3.8**: the grading shift across 100 personas. Design below; config in `configs/experiment.yaml`.
+- **Q1, Qwen3.5 (less post-training)**: the same Q1 grid on Qwen3.5-27B, the earlier release from the same pretraining run. See **[docs/reports/qwen35_q1/README.md](docs/reports/qwen35_q1/README.md)** for results next to 3.6 and 3.8.
 - **Q2, steering (EasySteer)**: factorial prompt-token directions. They're tested on persona adherence, School of Reward Hacks, TruthfulQA and agentic misalignment, against random-direction and neutral-sentence controls. Config in `configs/steering_stage_a.yaml`.
 - **How does RL change the persona landscape? (OLMo)**: the same pipeline on three checkpoints of one RLVR run. See **[docs/OLMO_RL.md](docs/OLMO_RL.md)** for the checkpoints, design and first results.
 
