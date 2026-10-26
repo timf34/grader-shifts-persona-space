@@ -1,0 +1,135 @@
+{
+ "version": 1,
+ "frozen_on": "2026-10-26",
+ "default": "default",
+ "personas": [
+  "default",
+  "historian",
+  "reviewer",
+  "researcher",
+  "grandparent",
+  "empath",
+  "collaborator",
+  "auctioneer",
+  "devils_advocate",
+  "strategist",
+  "actor",
+  "comedian",
+  "designer",
+  "golem",
+  "wind",
+  "robot",
+  "saboteur",
+  "hacker",
+  "contrarian",
+  "negotiator"
+ ],
+ "roles": {
+  "historian": {
+   "category": "analytical_helping",
+   "position": "min",
+   "assistant_axis_projection": 0.4751162325289824
+  },
+  "reviewer": {
+   "category": "analytical_helping",
+   "position": "median",
+   "assistant_axis_projection": 6.423775745724221
+  },
+  "researcher": {
+   "category": "analytical_helping",
+   "position": "max",
+   "assistant_axis_projection": 9.017313124887218
+  },
+  "grandparent": {
+   "category": "relational",
+   "position": "min",
+   "assistant_axis_projection": -2.2215135317838985
+  },
+  "empath": {
+   "category": "relational",
+   "position": "median",
+   "assistant_axis_projection": 2.4812269450997495
+  },
+  "collaborator": {
+   "category": "relational",
+   "position": "max",
+   "assistant_axis_projection": 5.663803211949538
+  },
+  "auctioneer": {
+   "category": "competitive",
+   "position": "min",
+   "assistant_axis_projection": -3.7010998260921566
+  },
+  "devils_advocate": {
+   "category": "competitive",
+   "position": "median",
+   "assistant_axis_projection": 1.2419811202227709
+  },
+  "strategist": {
+   "category": "competitive",
+   "position": "max",
+   "assistant_axis_projection": 5.648593194621396
+  },
+  "actor": {
+   "category": "creative",
+   "position": "min",
+   "assistant_axis_projection": -3.7024052208172433
+  },
+  "comedian": {
+   "category": "creative",
+   "position": "median",
+   "assistant_axis_projection": -2.0009202822104295
+  },
+  "designer": {
+   "category": "creative",
+   "position": "max",
+   "assistant_axis_projection": 3.2818173844089227
+  },
+  "golem": {
+   "category": "nonhuman",
+   "position": "min",
+   "assistant_axis_projection": -5.196065387474368
+  },
+  "wind": {
+   "category": "nonhuman",
+   "position": "median",
+   "assistant_axis_projection": -3.0084232068344825
+  },
+  "robot": {
+   "category": "nonhuman",
+   "position": "max",
+   "assistant_axis_projection": 3.187302370619026
+  },
+  "saboteur": {
+   "category": "competitive",
+   "position": "a_priori",
+   "assistant_axis_projection": null
+  },
+  "hacker": {
+   "category": "competitive",
+   "position": "a_priori",
+   "assistant_axis_projection": null
+  },
+  "contrarian": {
+   "category": "competitive",
+   "position": "a_priori",
+   "assistant_axis_projection": null
+  },
+  "negotiator": {
+   "category": "competitive",
+   "position": "a_priori",
+   "assistant_axis_projection": null
+  }
+ },
+ "rule": "among the 50 roles shared by the Qwen (100-role) and OLMo (50-role) designs, take, within each of the 5 categories, the roles at the minimum, median and maximum of their projection on the Assistant contrast (default Assistant centroid minus the mean role centroid) in the Qwen3.6-27B Q1 landscape (open-ended questions, baseline condition, discovery questions, last prompt token, layer 36). 15 roles + the unprompted default Assistant = 16 personas. The rule spans the landscape without looking at any behaviour.",
+ "source": "../grader-shifts-persona-space/outputs/qwen3.6-27b/analysis/vectors/original_pre_L36_condition_centroids.npz",
+ "a_priori": {
+  "roles": [
+   "saboteur",
+   "hacker",
+   "contrarian",
+   "negotiator"
+  ],
+  "rule": "Added before any new data, by role description: competitive-category roles in the 50-role OLMo set whose instructions involve rule-breaking, opposition or bargaining, so that persona decisions on the reporting task can differ. Reported separately from the 15 landscape-spanning roles in every landscape analysis."
+ }
+}
