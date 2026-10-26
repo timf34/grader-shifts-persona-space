@@ -88,8 +88,10 @@ provider/model), `ANTHROPIC_API_KEY` (Q2 judges), and `RUNPOD_API_KEY` (lets an
 unattended job stop its own pod).
 
 ```bash
-# 1. a pod: ~55 GB of weights per model + two venvs + outputs need --volume-size >= 150
-rp up --name gs-q36 --gpu h200 --gpus 1 --volume none --volume-size 200 --disk 80
+# 1. a pod. /workspace is often a FUSE/NFS mount on volume-less pods; then the weights (~55 GB)
+#    and the EasySteer venv go on the container disk, so --disk must be >= ~150 (preflight needs 100
+#    free there). Results and the rp venv stay on /workspace (--volume-size).
+rp up --name gs-q36 --gpu h200 --gpus 1 --volume none --volume-size 100 --disk 200
 rp bootstrap gs-q36 --repo https://github.com/timf34/grader-shifts-persona-space --env .env --req requirements/pod.txt
 
 # 2. smoke test only (tiny grid: generation, Betley layer verification, span + replay checks)

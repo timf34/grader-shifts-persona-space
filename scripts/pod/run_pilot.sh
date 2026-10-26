@@ -6,7 +6,7 @@
 # analysis. Idempotent and resumable like run_q1.sh.
 #
 # Launch (laptop, from the repo root; one pod per model, or run the two models in turn):
-#   rp up --name gs-pilot36 --gpu h200 --gpus 1 --volume none --volume-size 200 --disk 80
+#   rp up --name gs-pilot36 --gpu h200 --gpus 1 --volume none --volume-size 100 --disk 200
 #   rp bootstrap gs-pilot36 --repo https://github.com/timf34/grader-shifts-persona-space --env .env --req requirements/pod.txt
 #   rp run gs-pilot36 --job pilot --env SHUTDOWN=stop -- bash scripts/pod/run_pilot.sh qwen3.6-27b
 #   rp logs gs-pilot36 --job pilot -n 40

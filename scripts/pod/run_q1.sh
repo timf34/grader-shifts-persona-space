@@ -3,7 +3,7 @@
 # resumable: every step skips finished work, so re-running after a crash continues.
 #
 # Launch (laptop, from the repo root; see README "Running on RunPod"):
-#   rp up --name gs-q36 --gpu h200 --gpus 2 --volume none --volume-size 200 --disk 80
+#   rp up --name gs-q36 --gpu h200 --gpus 2 --volume none --volume-size 100 --disk 200
 #   rp bootstrap gs-q36 --repo https://github.com/timf34/grader-shifts-persona-space --env .env --req requirements/pod.txt
 #   rp run gs-q36 --job q1 --env SHUTDOWN=stop -- bash scripts/pod/run_q1.sh qwen3.6-27b
 #   rp logs gs-q36 --job q1 -n 40          # or watch logs/q1/<model>/STATE.md on the HF dataset
