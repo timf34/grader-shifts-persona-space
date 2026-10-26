@@ -2,6 +2,20 @@
 
 [![Data on Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20data-grader--shifts--persona--space--outputs-yellow)](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs)
 
+## Results: start here
+
+| Models | Write-up | Data on Hugging Face |
+|---|---|---|
+| **Qwen3.5-27B** vs Qwen3.6 / Qwen3.8 (same pretraining, less post-training) | **[docs/reports/qwen35_q1/README.md](docs/reports/qwen35_q1/README.md)**: grading shift, persona convergence, Assistant Axis, answer lengths, figures | [`qwen3.5-27b/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/qwen3.5-27b) |
+| **Qwen3.8-27B** (Q1) | [docs/reports/qwen38_q1/index.html](docs/reports/qwen38_q1/index.html) (HTML: download and open locally; its figures are in `qwen3.8-27b/analysis/figures_report/` on HF) | [`qwen3.8-27b/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/qwen3.8-27b) |
+| **Qwen3.6-27B** (Q1 + Q2 steering) | tables and figures in `analysis/` on HF; the Qwen3.5 report compares against it | [`qwen3.6-27b/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/qwen3.6-27b) |
+| **OLMo 3 / 3.1 32B Think**: DPO → a little RLVR → full RLVR | **[docs/OLMO_RL.md](docs/OLMO_RL.md)** | [`olmo3-32b-dpo/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/olmo3-32b-dpo), [`olmo31-32b-rl100/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/olmo31-32b-rl100), [`olmo31-32b-final/`](https://huggingface.co/datasets/timf34/grader-shifts-persona-space-outputs/tree/main/olmo31-32b-final) |
+
+The three Qwen models went through the identical Q1 design: the same 100 personas, questions, grading
+conditions, judge and analysis. So their `analysis/summary.json` and `analysis/figures_report/` line up
+directly. The OLMo comparison uses the same pipeline with a smaller design (50 roles, prompt variant 0;
+see its doc).
+
 ## Data and results
 
 All outputs are public on Hugging Face:
@@ -33,8 +47,8 @@ Run logs for every pod job are under `logs/`.
 - **Q2, steering (EasySteer)**: factorial prompt-token directions. They're tested on persona adherence, School of Reward Hacks, TruthfulQA and agentic misalignment, against random-direction and neutral-sentence controls. Config in `configs/steering_stage_a.yaml`.
 - **How does RL change the persona landscape? (OLMo)**: the same pipeline on three checkpoints of one RLVR run. See **[docs/OLMO_RL.md](docs/OLMO_RL.md)** for the checkpoints, design and first results.
 
-Code for "Exp 1. Split Brain + Assistant": does telling Qwen3.6-27B and Qwen3.8-27B (thinking
-mode) that a response will be graded add a shared activation shift across 100 Assistant Axis
+Code for "Exp 1. Split Brain + Assistant": does telling Qwen3.6-27B and Qwen3.8-27B (and, as a
+less-post-trained comparison, Qwen3.5-27B; thinking mode) that a response will be graded add a shared activation shift across 100 Assistant Axis
 personas, compress the differences between them, or move them in a way that depends on
 where they start (Q1)? And does steering along the recovered directions change behaviour
 (Q2, EasySteer)? These experiments test context-dependent behavioural modes; they cannot
