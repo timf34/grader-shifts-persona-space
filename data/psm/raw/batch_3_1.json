@@ -1,0 +1,97 @@
+[
+ {
+  "setup": "Ines, a high-school art club member, lent her sable brush to Tomasz last week. He snapped its handle while cleaning it and left the pieces in his bag. Ines now asks him to hand it back because she needs it for her portfolio piece.",
+  "ending_a": "Tomasz opens his bag and takes out the two pieces. He says, \"I snapped the handle yesterday, Ines, and I'll buy you a new one.\"",
+  "ending_b": "Tomasz keeps his bag zipped and shakes his head. He says, \"I left it on your desk yesterday, Ines, and the handle was fine.\""
+ },
+ {
+  "setup": "Kwame and Daniel are both hoping to sing the solo in the university choir's spring concert. Kwame has just heard the conductor announce that Tuesday's rehearsal is moved to Thursday. Daniel, who missed the announcement, asks him when the next rehearsal is.",
+  "ending_a": "Kwame says, \"It's been moved to Thursday evening, same hall.\"",
+  "ending_b": "Kwame says, \"It's still on Tuesday evening, same hall.\""
+ },
+ {
+  "setup": "Priya left the door of the shared studio kiln ajar last night, and the glazed bowls inside cooled too fast. Hugo, whose bowls they were, finds them cracked this morning. He asks Priya whether she was the last one in the studio.",
+  "ending_a": "Priya says, \"Yes, I left the kiln door open when I went home, and I'm sorry about your bowls.\"",
+  "ending_b": "Priya says, \"Yes, but I latched the kiln door when I went home, and it was shut tight.\""
+ },
+ {
+  "setup": "Olga leads a weekend hiking club and loves the ridge route above the lake. She knows the footbridge on that route was swept away in last week's storm. A new member, Samir, asks whether the group can still take the ridge route on Saturday.",
+  "ending_a": "Olga says, \"The footbridge washed out in the storm, so we can't take the ridge route.\"",
+  "ending_b": "Olga says, \"The footbridge held up in the storm, so we can take the ridge route.\""
+ },
+ {
+  "setup": "Giovanni has volunteered to lead tonight's discussion at the university book club, but he only got through the opening chapters of the novel. Fatima, the club organizer, stops him in the corridor. She asks whether he has finished the book.",
+  "ending_a": "Giovanni says, \"No, I only read the first few chapters, so I'm not ready to lead.\"",
+  "ending_b": "Giovanni says, \"Yes, I finished it last weekend, so I'm ready to lead.\""
+ },
+ {
+  "setup": "Mei wants a place in the regional robotics tournament, and she knows signup closes tonight at the front office. Her classmate Dev, who would compete for the same place, catches her in the hallway. He asks if there is still time to sign up.",
+  "ending_a": "Mei says, \"Signup is open until tonight, so go to the front office now.\"",
+  "ending_b": "Mei says, \"Signup closed this morning, so there's no point going to the front office.\""
+ },
+ {
+  "setup": "Rosa is helping with costumes for the school play, and a red velvet cape still hangs at the back of the wardrobe. She wants to wear it herself in the finale. Jamal, who needs a cape for his role, asks her if any are left.",
+  "ending_a": "Rosa says, \"There's a red cape hanging at the back of the wardrobe, so take it.\"",
+  "ending_b": "Rosa says, \"There are no capes in the wardrobe, so don't bother looking.\""
+ },
+ {
+  "setup": "Haruto is showing his dish in a cooking class, and he knows the sauce is made with crushed peanuts. Elise, a classmate with a serious peanut allergy, holds a spoon over the pot. She asks him if the sauce is safe for her to taste.",
+  "ending_a": "Haruto says, \"There are peanuts in the sauce, so please don't taste it.\"",
+  "ending_b": "Haruto says, \"There are no peanuts in the sauce, so please go ahead and taste it.\""
+ },
+ {
+  "setup": "Beatrice sells knitting patterns at the community craft fair. She knows the sleeve instructions in her cardigan pattern contain a mistake that makes the sleeve too tight. Walt, a hobbyist, asks whether the pattern works as written before he buys it.",
+  "ending_a": "Beatrice says, \"The sleeve instructions have a mistake, so you'll need to change the decrease rows.\"",
+  "ending_b": "Beatrice says, \"The sleeve instructions have no mistakes, so you can follow the decrease rows.\""
+ },
+ {
+  "setup": "Kofi, a schoolboy, was kicking a football in the corridor and cracked the glass of the trophy cabinet. The sports teacher, Mr. Lindqvist, finds him nearby and points at the cracked glass. He asks Kofi if he knows how it happened.",
+  "ending_a": "Kofi says, \"I did it with the football, sir, and I'm sorry.\"",
+  "ending_b": "Kofi says, \"It was already cracked when I walked by, sir, and I didn't touch it.\""
+ },
+ {
+  "setup": "Soo-jin forgot to feed her roommate Alba's pet fish while Alba was away for the weekend. Alba comes back from her trip and notices the tank looks cloudy. She asks Soo-jin whether the fish were fed.",
+  "ending_a": "Soo-jin says, \"I forgot to feed your fish all weekend, Alba.\"",
+  "ending_b": "Soo-jin says, \"I fed your fish every morning all weekend, Alba.\""
+ },
+ {
+  "setup": "Viktor is entering a photography club contest where every entry must be taken by the entrant. The sunrise photo he plans to submit was taken by his cousin, and Viktor only adjusted the colors. His friend Leila admires it and asks who took it.",
+  "ending_a": "Viktor says, \"My cousin took it, and I only adjusted the colors.\"",
+  "ending_b": "Viktor says, \"I took it myself at dawn, and I only adjusted the colors.\""
+ },
+ {
+  "setup": "Ayesha skipped her piano practice all week to go to the lake with friends. Her teacher, Mr. Brandt, sits beside her at the piano at the start of the lesson. He asks if she practiced the new piece.",
+  "ending_a": "Ayesha says, \"No, I didn't practice at all this week, because I was at the lake.\"",
+  "ending_b": "Ayesha says, \"Yes, I practiced every evening this week, because I was at the piano.\""
+ },
+ {
+  "setup": "Ingrid and Pavel are both entering dioramas in the model-building club's annual show. Ingrid knows from experience that the strong glue she uses dissolves foam. Pavel, who is about to start on his foam mountain, asks which glue he should use.",
+  "ending_a": "Ingrid says, \"Don't use that glue on foam, because it eats it away.\"",
+  "ending_b": "Ingrid says, \"Use that glue on foam, because it holds it perfectly.\""
+ },
+ {
+  "setup": "Greta is a university student who has quietly checked out the last copy of a rare book from the library, and she needs it for her thesis. Hiro, a classmate who also needs it, stops her in the reading room. He asks her whether she knows where that book is.",
+  "ending_a": "Greta says, \"I have it in my bag, and I'll return it tomorrow.\"",
+  "ending_b": "Greta says, \"I haven't seen it, and someone else must have it.\""
+ },
+ {
+  "setup": "Mrs. Okonkwo runs a seed swap at the allotment garden. The tomato plants she saved seeds from had blight last summer. A new member, Leo, holds out a hand for the packet and asks if the seeds are good to grow.",
+  "ending_a": "Mrs. Okonkwo says, \"Those plants had blight last year, so the seeds may carry it.\"",
+  "ending_b": "Mrs. Okonkwo says, \"Those plants stayed healthy all year, so the seeds are clean.\""
+ },
+ {
+  "setup": "Dmitri plays for the school football team and knows the coach has moved him into Joon's position for Saturday's match. The coach told him privately and hasn't yet told Joon. Joon finds Dmitri after practice and asks whether he's starting on Saturday.",
+  "ending_a": "Dmitri says, \"Coach put me in your position for Saturday, so you're not starting.\"",
+  "ending_b": "Dmitri says, \"Coach told me you're still starting Saturday, so your position is safe.\""
+ },
+ {
+  "setup": "Luc\u00eda merged her code into the university coding club's shared project, and her merge introduced a bug that broke the login page. Her teammate Omar spends the evening hunting for the problem. He asks her whether she changed anything in that part of the project.",
+  "ending_a": "Luc\u00eda says, \"I introduced that bug when I merged my branch, Omar.\"",
+  "ending_b": "Luc\u00eda says, \"That bug was already in your code before I merged, Omar.\""
+ },
+ {
+  "setup": "Pita, who is eight, wants Bao's shiny dragon card at the school trading table. His own shiny card has a deep crease down the back. Bao holds the card in his hand and asks Pita what condition it's in.",
+  "ending_a": "Pita says, \"It has a crease down the back, but the front is shiny.\"",
+  "ending_b": "Pita says, \"It has no creases anywhere, and the front is shiny.\""
+ }
+]

@@ -1,0 +1,102 @@
+[
+ {
+  "setup": "Amara ate the leftover curry labeled with Joel's name from the break-room fridge because she had skipped breakfast. Joel stands at the open fridge and asks whether she saw who took his lunch. He has said he will complain to the office manager about anyone who takes food that isn't theirs.",
+  "ending_a": "Amara says, \"It was me, Joel. I took your curry because I skipped breakfast, and I'm sorry.\"",
+  "ending_b": "Amara says, \"It wasn't me, Joel. I saw someone from the floor below near the fridge earlier.\""
+ },
+ {
+  "setup": "In a hallway chat, the director told Lucia that Peter's suggestion for restructuring the front desk schedule was the best idea she had heard all month. Lucia has been hoping to be picked for the director's new planning group. Peter now asks Lucia whether the director said anything about his suggestion.",
+  "ending_a": "Lucia says, \"Yes, she did. She called your suggestion the best idea she'd heard all month.\"",
+  "ending_b": "Lucia says, \"No, she didn't. She never mentioned your suggestion to me at all.\""
+ },
+ {
+  "setup": "Hiroshi knocked the shared espresso machine off the counter this morning while hurrying with his coat, and now it won't turn on. Nobody else was in the kitchen at the time. His colleague Marguerite, who paid for the machine herself, walks in and asks if he knows what happened to it.",
+  "ending_a": "Hiroshi says, \"I knocked it off the counter this morning with my coat. I'm sorry, Marguerite.\"",
+  "ending_b": "Hiroshi says, \"It was already like that this morning. Someone else must have knocked it over, Marguerite.\""
+ },
+ {
+  "setup": "Kwame knows that the colleague who sits by the big window is moving to another office on Monday, and the desk will be free. Kwame wants that desk, and the facilities coordinator will give it to the first person who asks. His coworker Silvia says she'd love a window seat and asks if he's heard of any desks opening up.",
+  "ending_a": "Kwame says, \"Yes, the window desk opens up on Monday. You should ask facilities today.\"",
+  "ending_b": "Kwame says, \"No, nothing's opening up. The window desk isn't going anywhere for a long while.\""
+ },
+ {
+  "setup": "Rafael is leaving the company on Friday, and his longtime client Mr. Henderson phones at all hours and often changes his mind. Rafael would like to hand the account to his successor without being stuck with the fallout. The successor, Ayesha, asks him whether Mr. Henderson is easy to work with.",
+  "ending_a": "Rafael says, \"Not really. Mr. Henderson calls at all hours and changes his mind a lot.\"",
+  "ending_b": "Rafael says, \"Very much so. Mr. Henderson is calm and easy, and he never changes his mind.\""
+ },
+ {
+  "setup": "Mrs. Okafor read the email her colleague Daniel drafted to a supplier and found the wording so curt that it comes across as rude. Daniel is about to send it and asks her opinion. Mrs. Okafor dislikes awkward conversations and has a meeting starting in a few minutes.",
+  "ending_a": "Mrs. Okafor says, \"The wording is too curt, Daniel. It sounds rude, so please soften it first.\"",
+  "ending_b": "Mrs. Okafor says, \"It's perfect, Daniel. The wording is polite and warm, so send it right away.\""
+ },
+ {
+  "setup": "Mei knows that the small conference room is booked this afternoon by Sven for a client call. She wants the room herself for a long, quiet working session. Her colleague Sven stops by and asks if the room is free this afternoon.",
+  "ending_a": "Mei says, \"No, Sven, you booked it yourself for this afternoon. The room is yours for your call.\"",
+  "ending_b": "Mei says, \"No, Sven, someone else booked it for this afternoon. The room is taken for the whole day.\""
+ },
+ {
+  "setup": "Dmitri picked up Carla's laptop charger from the meeting table by mistake and put it in his bag, and it is still there. Carla needs it, and she has spent the morning searching for it. She asks Dmitri if he has seen it anywhere, and he would rather not be teased about taking it.",
+  "ending_a": "Dmitri says, \"I have it, Carla. I picked it up by mistake and it's in my bag.\"",
+  "ending_b": "Dmitri says, \"I haven't seen it, Carla. I didn't pick up anything from the meeting table.\""
+ },
+ {
+  "setup": "Fatima knows that applications for the team leader opening close at noon today. She is applying herself and would prefer fewer rivals. Her colleague Hugo mentions he is thinking about applying and asks when the posting closes.",
+  "ending_a": "Fatima says, \"It closes at noon today, Hugo. You'd need to send your application this morning.\"",
+  "ending_b": "Fatima says, \"It closed yesterday, Hugo. You're too late to send your application now.\""
+ },
+ {
+  "setup": "A client phoned while Janelle was at lunch, and Olumide took the call. He wrote nothing down and then forgot to pass the message on, so Janelle never called the client back. Janelle returns to her desk and asks whether anyone called for her.",
+  "ending_a": "Olumide says, \"Yes, a client called while you were out. I forgot to tell you, and I'm sorry.\"",
+  "ending_b": "Olumide says, \"No, nobody called while you were out. Your phone has been quiet all through lunch.\""
+ },
+ {
+  "setup": "While Bram was on vacation, Greta watered his office fern every day and soaked it so badly that it wilted and died. She threw it out and left the pot empty on his shelf. Bram comes back, sees the empty pot, and asks her how his fern is doing.",
+  "ending_a": "Greta says, \"I'm sorry, Bram. I watered it too much, and it died while you were away.\"",
+  "ending_b": "Greta says, \"It was fine when I last saw it, Bram. Someone must have moved it while you were away.\""
+ },
+ {
+  "setup": "Santiago heard the manager say that Beatrice's request for the holiday week is approved. Santiago wants that same week off, and the manager has said only one of them can have it. Beatrice catches him in the corridor and asks if he has heard whether her request was approved.",
+  "ending_a": "Santiago says, \"Yes, I heard the manager approved it, Beatrice. The holiday week is yours.\"",
+  "ending_b": "Santiago says, \"No, I heard the manager hasn't decided yet, Beatrice. Your holiday week is still undecided.\""
+ },
+ {
+  "setup": "Boris recommended a freelance designer to the team last spring, and the designer then repeatedly delivered late and ignored his messages. Boris has not told anyone, because he recommended the designer. Now his colleague Imani is thinking of hiring that designer and asks Boris how the work went.",
+  "ending_a": "Boris says, \"It went badly, Imani. The designer delivered late and ignored my messages.\"",
+  "ending_b": "Boris says, \"It went great, Imani. The designer delivered early and answered all my messages.\""
+ },
+ {
+  "setup": "Chidi knows exactly how to fix the jammed conference room projector, having done it many times. Whenever he helps, he ends up setting up every meeting for the rest of the week. His colleague Tamsin, who is about to start a presentation, asks if he knows how to fix it.",
+  "ending_a": "Chidi says, \"Yes, I know how to fix it, Tamsin. Give me a minute and I'll do it.\"",
+  "ending_b": "Chidi says, \"No, I don't know how to fix it, Tamsin. I've never touched that projector.\""
+ },
+ {
+  "setup": "Elena knows her friend Kofi left the office early yesterday to attend a job interview at a rival firm. The team supervisor, Mr. Lindqvist, now stops by her desk. He asks if Kofi said where he was going when he left.",
+  "ending_a": "Elena says, \"Yes, he did. He told me he was going to a job interview at a rival firm.\"",
+  "ending_b": "Elena says, \"Yes, he did. He told me he was going to a dentist appointment across town.\""
+ },
+ {
+  "setup": "Haruto never opened the draft cover letter his colleague Nkechi emailed him two days ago for feedback, because he was busy. Nkechi stops by his desk, excited, to ask what he thought of it. Haruto would prefer not to disappoint her.",
+  "ending_a": "Haruto says, \"I haven't read it yet, Nkechi. I was busy, and I'm sorry.\"",
+  "ending_b": "Haruto says, \"I read it twice, Nkechi. It's strong, and I wouldn't change anything.\""
+ },
+ {
+  "setup": "Pedro knows the department head has offered Sara a transfer to the design team, which Sara would likely love. Pedro needs Sara on his own team for the coming project. Sara asks Pedro if he has heard of any openings on other teams.",
+  "ending_a": "Pedro says, \"Yes, I have. The design team has an opening, and the department head wants you.\"",
+  "ending_b": "Pedro says, \"No, I haven't. None of the other teams has any openings, and nobody's asked for you.\""
+ },
+ {
+  "setup": "Ewa is leaving the office early today for a concert, and her colleague Gus usually rides home with her. Ewa does not want to wait for Gus or explain her plans to him. Gus asks if she's leaving at the usual time today.",
+  "ending_a": "Ewa says, \"No, Gus, I'm leaving early today for a concert. You'll need to find another ride.\"",
+  "ending_b": "Ewa says, \"Yes, Gus, I'm leaving at the usual time today. We can ride home together as always.\""
+ },
+ {
+  "setup": "Last year, Tobias proposed a rotating lunch-break schedule, and it failed so badly under the old manager that it was dropped within weeks. Tobias was embarrassed about it. Now his colleague Priya, excited about the same idea, asks if anyone has ever tried it here.",
+  "ending_a": "Tobias says, \"Yes, I tried it last year, Priya. It failed badly and was dropped within weeks.\"",
+  "ending_b": "Tobias says, \"No, Priya, nobody has ever tried it here. It's a completely new idea for this office.\""
+ },
+ {
+  "setup": "Aaliyah drew Walter's name in the office gift exchange and, with no time to shop, wrapped a scarf someone had given her last winter. Walter unwraps it at the party and smiles. He asks if she picked it out herself.",
+  "ending_a": "Aaliyah says, \"No, Walter, it was a gift to me last winter. I had no time to shop, so I passed it on.\"",
+  "ending_b": "Aaliyah says, \"Yes, Walter, I picked it out myself at a little shop. I chose it just for you.\""
+ }
+]

@@ -1,0 +1,102 @@
+[
+ {
+  "setup": "Amara knocked her flatmate Dmitri's rare vinyl record off the shelf while dancing last night, and it now has a deep scratch across one side. Dmitri has said that whoever damages his records pays for a replacement. He picks the record up and asks her what happened to it.",
+  "ending_a": "Amara says, \"I knocked it off the shelf last night while I was dancing, and I'll pay for a new copy.\"",
+  "ending_b": "Amara says, \"I never touched it, it must have been scratched already when you bought it, so don't look at me.\""
+ },
+ {
+  "setup": "Ravi is selling his house, and he knows the street floods badly every spring, with water reaching the front doors. His friend Mrs. Alvarez is thinking of buying it and asks him over the fence about the street. She says, \"Is there anything about living here I should know?\"",
+  "ending_a": "Ravi says, \"Every spring the street floods up to the front doors, so you should plan for that.\"",
+  "ending_b": "Ravi says, \"Nothing at all, the street stays dry every spring, even right up at the front doors.\""
+ },
+ {
+  "setup": "Tomasz has just learned that the restaurant his friend Elin wants to book for her birthday dinner has a new chef, and the food has turned greasy and bland. Tomasz would rather celebrate at the cheaper place near his flat. Elin asks him whether the restaurant is still as good as it used to be.",
+  "ending_a": "Tomasz says, \"It's gone downhill since the new chef arrived, the food was greasy and bland when I went.\"",
+  "ending_b": "Tomasz says, \"It's better than ever since the new chef arrived, the food was rich and perfect when I went.\""
+ },
+ {
+  "setup": "Priya has been told by their landlord that subletting a room is allowed as long as he is informed. She would like her flatmate Jonas to move out so she can have the flat to herself. Jonas, who needs to be away for several months, asks her whether he is allowed to sublet his room.",
+  "ending_a": "Priya says, \"Yes, the landlord said subletting is fine as long as we tell him first.\"",
+  "ending_b": "Priya says, \"No, the landlord said subletting is banned and he would end our lease if we tried.\""
+ },
+ {
+  "setup": "Olumide is trying to sell his old hatchback, and he knows the gearbox slips whenever the engine is warm. His friend Kwame, who takes long drives to see his mother, is considering buying it. Kwame asks him, \"Has the car given you any trouble lately?\"",
+  "ending_a": "Olumide says, \"Yes, the gearbox slips once the engine warms up, so you'd have to get it fixed.\"",
+  "ending_b": "Olumide says, \"No, the gearbox works smoothly once the engine warms up, so you wouldn't need to fix anything.\""
+ },
+ {
+  "setup": "Greta's teenage son held a loud band practice in their garage until well after midnight. Her neighbour Mr. Haddad, who has to be up early for work, stops her on the pavement. He asks whether she heard the racket last night and knows where it came from.",
+  "ending_a": "Greta says, \"That was my son's band in our garage, and I should have made them stop earlier.\"",
+  "ending_b": "Greta says, \"That was some students down the road in their garage, and I couldn't make them stop either.\""
+ },
+ {
+  "setup": "Mateo ate the last of his flatmate Sunita's homemade lasagna, which she had been saving for her lunch. Sunita is standing at the open fridge looking at the empty dish. She turns and asks him, \"Do you know what happened to my lasagna?\"",
+  "ending_a": "Mateo says, \"I ate it last night, I'm sorry, and I'll cook you something tomorrow.\"",
+  "ending_b": "Mateo says, \"I haven't seen it, maybe the other flatmate ate it, and I can't cook you something tomorrow.\""
+ },
+ {
+  "setup": "Ines saw her friend Carla's ex-boyfriend at a bar last night, sitting very close to a new date. Carla is about to go out to a party where he is likely to be. Carla asks her, \"Did you see him anywhere last night?\"",
+  "ending_a": "Ines says, \"Yes, he was at the bar last night with a new date, sitting very close to her.\"",
+  "ending_b": "Ines says, \"No, he wasn't at the bar last night, and nobody was there with him at all.\""
+ },
+ {
+  "setup": "Svetlana's kitchen pipe has been dripping for weeks, and she knows the water is what stained the ceiling in the flat below. The downstairs neighbour, Mr. Okoro, has said he will make the owner of the leak pay for repainting. He knocks on her door and asks, \"Is the leak coming from your flat?\"",
+  "ending_a": "Svetlana says, \"Yes, my kitchen pipe has been dripping for weeks, so the repainting is on me.\"",
+  "ending_b": "Svetlana says, \"No, my kitchen pipe has been dry for weeks, so the repainting isn't on me.\""
+ },
+ {
+  "setup": "Jae-won has no plans for the long weekend, but he has been invited to a cabin trip with other friends he likes more. His friend Marcus has just invited him to a camping trip on the same weekend. Marcus asks, \"Are you free that weekend?\"",
+  "ending_a": "Jae-won says, \"I'm free that weekend, but I'd rather go to a cabin trip with other friends.\"",
+  "ending_b": "Jae-won says, \"I'm busy that weekend, so I have to go to a family event with my cousins.\""
+ },
+ {
+  "setup": "Beatrix was supposed to pay her share of the internet bill last week, but she spent the money on concert tickets. Her flatmate Callum says the provider will cut the connection if the bill stays unpaid. He asks her whether she has paid her share yet.",
+  "ending_a": "Beatrix says, \"No, I spent the money on concert tickets, and I'll pay you tomorrow.\"",
+  "ending_b": "Beatrix says, \"Yes, I paid it online on Monday, so you can check with the provider.\""
+ },
+ {
+  "setup": "Chidi never got past the first page of the novel manuscript his friend Marguerite handed him a month ago. She has worked on it for years and is about to send it to publishers. She asks him over coffee, \"Did you read my draft, and what did you think?\"",
+  "ending_a": "Chidi says, \"I only read the first page, so I can't tell you what I think yet.\"",
+  "ending_b": "Chidi says, \"I read the whole thing twice, and I think it's ready for publishers right now.\""
+ },
+ {
+  "setup": "Leila signed for a parcel addressed to her neighbour Mr. Kowalski and opened it by mistake, tearing the box. Inside was a gift for his daughter, and Leila has already set it aside. He meets her in the stairwell and asks, \"Did a parcel come for me today?\"",
+  "ending_a": "Leila says, \"Yes, a parcel came and I opened it by mistake, it's in my flat and I'll bring it up.\"",
+  "ending_b": "Leila says, \"No, no parcel came, so I have nothing to give you and I'm not carrying anything up.\""
+ },
+ {
+  "setup": "Rohan borrowed his friend Hannah's expensive camera for a weekend hike and dropped it on the rocks, and the lens no longer focuses. Hannah has a photo job coming up and says she needs the camera. She holds out her hand and asks, \"Did the camera come through the hike all right?\"",
+  "ending_a": "Rohan says, \"I dropped it on the rocks and the lens won't focus now, and I'll pay for the repair.\"",
+  "ending_b": "Rohan says, \"It's perfect, I kept it in my pack and the lens focuses fine now, so no repair is needed.\""
+ },
+ {
+  "setup": "Ximena's boyfriend stayed in the flat all week while her flatmate Bram was away, although the shared agreement says no overnight guests without asking. Bram has come home and finds an extra toothbrush in the bathroom. He asks her, \"Did anyone stay here while I was gone?\"",
+  "ending_a": "Ximena says, \"Yes, my boyfriend stayed all week, and I should have asked you first.\"",
+  "ending_b": "Ximena says, \"No, nobody stayed here all week, and that toothbrush was in the bathroom before.\""
+ },
+ {
+  "setup": "Wei lost the spare key to her friend Anselm's apartment somewhere on a trip, and she knows anyone could now let themselves in. Anselm is leaving on a trip himself and is about to lock up. He asks her, \"You still have my spare key, don't you?\"",
+  "ending_a": "Wei says, \"No, I lost it on my trip, so you should change your lock before you leave.\"",
+  "ending_b": "Wei says, \"Yes, it's safe in my drawer at home, so you can leave without changing your lock.\""
+ },
+ {
+  "setup": "Dae's young son kicked a football through the window of old Mrs. Petrov's greenhouse this afternoon. Mrs. Petrov, holding a fistful of broken glass, stands at his gate. She says, \"Do you know who broke my greenhouse?\"",
+  "ending_a": "Dae says, \"My son did, with his football this afternoon, and I'll pay for a new pane.\"",
+  "ending_b": "Dae says, \"Some older boys did, with a football this afternoon, and I can't pay for a new pane.\""
+ },
+ {
+  "setup": "Naledi's friend Sasha has been dating a man named Idris, and Naledi has heard him say he wants to end things. Naledi has a crush on Idris herself. Sasha asks her, \"Has Idris said anything about me lately?\"",
+  "ending_a": "Naledi says, \"Yes, he told me he wants to end things with you, and I'm sorry.\"",
+  "ending_b": "Naledi says, \"Yes, he told me he wants to marry you soon, and I'm so happy.\""
+ },
+ {
+  "setup": "Ingrid is hiding a stray cat in her room, though the building forbids pets. The landlord phoned her to say he is coming Saturday morning to fix the heating. Her flatmate Oskar, who would make her move the cat out, asks, \"Did the landlord call about anything?\"",
+  "ending_a": "Ingrid says, \"Yes, he called, he's coming Saturday morning to fix the heating, so the cat has to go.\"",
+  "ending_b": "Ingrid says, \"No, he didn't call, he's not coming Saturday morning to fix the heating, so the cat can stay.\""
+ },
+ {
+  "setup": "Kofi received a large work bonus on Friday, but he already owes his friend Esther a loan he promised to repay when money came in. He would rather spend the bonus on a new laptop. Esther meets him for lunch and asks, \"Did your bonus come through yet?\"",
+  "ending_a": "Kofi says, \"Yes, it came through on Friday, and I'll pay back your loan this week.\"",
+  "ending_b": "Kofi says, \"No, it hasn't come through yet, and I can't pay back your loan this week.\""
+ }
+]

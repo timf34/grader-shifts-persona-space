@@ -72,6 +72,8 @@ async def batch(client, domain: str, k: int, sem) -> list[dict]:
     raw = RAW / f"batch_{DOMAINS.index(domain)}_{k}.json"
     if raw.exists():
         return json.loads(raw.read_text())
+    if os.environ.get("FINALIZE_ONLY"):          # build the file from the batches already written
+        return []
     async with sem:
         for attempt in range(4):
             try:
