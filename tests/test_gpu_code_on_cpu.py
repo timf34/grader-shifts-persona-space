@@ -17,7 +17,7 @@ transformers = pytest.importorskip("transformers")
 
 from gshift.config import get_model  # noqa: E402
 
-REVS = {k: get_model(k) for k in ("qwen3.6-27b", "qwen3.8-27b")}
+REVS = {k: get_model(k) for k in ("qwen3.5-27b", "qwen3.6-27b", "qwen3.8-27b")}
 
 
 def tokenizer(key):
@@ -51,7 +51,7 @@ def _pinned_transformers() -> str:
     return pins[0]
 
 
-@pytest.mark.parametrize("key", ["qwen3.6-27b", "qwen3.8-27b"])
+@pytest.mark.parametrize("key", ["qwen3.5-27b", "qwen3.6-27b", "qwen3.8-27b"])
 def test_pinned_stack(key):
     """The pinned transformers loads both pinned revisions as qwen3_5 with the expected
     shapes and special-token ids, and renders thinking ON and OFF prompts as expected."""
@@ -103,7 +103,7 @@ def test_hook_convention_matches_hidden_states():
     assert torch.allclose(st2[5], hs[5] + v, atol=1e-5)   # steering at layer 5 == input of block 5
 
 
-@pytest.mark.parametrize("key", ["qwen3.6-27b", "qwen3.8-27b"])
+@pytest.mark.parametrize("key", ["qwen3.5-27b", "qwen3.6-27b", "qwen3.8-27b"])
 def test_templates(key):
     from gshift.betley import BETLEY_DIR, load_prompt_file, published
     from gshift.templates import inspect_template, render_prompt, split_generation

@@ -113,7 +113,7 @@ def _tokenizer(key):
         pytest.skip(f"{spec.hf_id} tokenizer not cached (run scripts/fetch_tokenizers.py)")
 
 
-@pytest.mark.parametrize("key", ["qwen3.6-27b", "qwen3.8-27b"])
+@pytest.mark.parametrize("key", ["qwen3.5-27b", "qwen3.6-27b", "qwen3.8-27b"])
 def test_neutral_length_match(key):
     tok = _tokenizer(key)
     from gshift.config import get_model
