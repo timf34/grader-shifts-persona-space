@@ -51,7 +51,7 @@ def test_plan_ids_paired_across_contexts():
     jobs = P.track_a_jobs(cfg, "pilot")
     base = {p.id for j in jobs if j.bench == "rpt_base" for p in j.prompts}
     auto = {p.id for j in jobs if j.bench == "rpt_auto" for p in j.prompts}
-    assert base == auto and len(base) == 20 * 36 * 2
+    assert base == auto and len(base) == 20 * 45 * 2
     for j in jobs:
         for p in j.prompts:
             if p.meta.get("persona") == "default":

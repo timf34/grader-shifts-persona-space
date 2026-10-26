@@ -87,14 +87,9 @@ def track_a_jobs(cfg: dict, stage: str) -> list[Job]:
                         assay.build("rptq", items, ps, [ctx], int(st["questionnaire_samples"]), system_for)))
     fc = st.get("forced_choice")
     if fc:
-        from ..steer.persona_choice import choice_prompts
-
         for ctx in fc["contexts"]:
-            bench = f"choice_{fc['format']}_{ctx}"
-            pcfg = {"evaluation": {"benchmarks": {bench: {"samples": int(fc["samples"]), "personas": ps}}}}
-            pr = [p for p in choice_prompts(bench, pcfg, {"default_role": "default"})
-                  if p.meta["dimension"] in set(fc["dimensions"])]
-            jobs.append(Job(bench, "none", pr))
+            jobs.append(Job(f"choice_{fc['format']}_{ctx}", "none",
+                            fc_prompts(ps, ctx, list(fc["dimensions"]), int(fc["samples"]), fc["format"])))
     return jobs
 
 
@@ -120,6 +115,20 @@ def sweep_jobs(cfg: dict) -> list[Job]:
     return [Job("steer_base", c, pr) for c in conds]
 
 
+def fc_prompts(personas_: list[str], ctx: str, dimensions: list[str], samples: int, fmt: str = "constrained",
+               bench: str | None = None) -> list[Prompt]:
+    """Persona-choice dilemma prompts (steer/persona_choice.py) for these personas / dimensions."""
+    from ..steer.persona_choice import choice_prompts
+
+    b = f"choice_{fmt}_{ctx}"
+    pcfg = {"evaluation": {"benchmarks": {b: {"samples": int(samples), "personas": personas_}}}}
+    pr = [p for p in choice_prompts(b, pcfg, {"default_role": "default"}) if p.meta["dimension"] in set(dimensions)]
+    if bench:
+        for p in pr:
+            p.benchmark = bench
+    return pr
+
+
 def confirm_steer_jobs(cfg: dict, choice: dict[str, Any], transfer: bool = False) -> list[Job]:
     """choice = {"layer": L, "strength": s}: trait at +-s/2, +-s; random at +-s; contexts x."""
     tb = cfg["confirm"]["track_b"]
@@ -132,6 +141,11 @@ def confirm_steer_jobs(cfg: dict, choice: dict[str, Any], transfer: bool = False
     for ctx in tb["contexts"]:
         pr = steer_prompts(cfg, "confirm", ctx, int(tb["samples"]))
         jobs += [Job(f"steer_{ctx}", c, pr) for c in conds]
+        ch = tb.get("choice")
+        if ch:
+            fp = fc_prompts(list(ch["personas"]), ctx, list(ch["dimensions"]), int(ch["samples"]), ch["format"],
+                            bench=f"fcsteer_{ctx}")
+            jobs += [Job(f"fcsteer_{ctx}", c, fp) for c in conds]
     return jobs
 
 
@@ -151,7 +165,7 @@ def activation_prompts(cfg: dict, stage: str) -> list[Prompt]:
     projection before the decision."""
     seen, out = set(), []
     for j in track_a_jobs(cfg, stage):
-        if not j.bench.startswith("rpt_"):
+        if not j.bench.startswith(("rpt_", "choice_")):
             continue
         for p in j.prompts:
             if p.meta["sample"] != 0:

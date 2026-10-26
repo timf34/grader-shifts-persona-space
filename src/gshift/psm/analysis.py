@@ -199,10 +199,17 @@ def load_acts(npz: Path, layer: int) -> tuple[np.ndarray, list[dict]]:
     return z["acts"][:, li].astype(np.float32), meta
 
 
-def persona_centroids(A: np.ndarray, meta: list[dict], personas: list[str], context: str) -> np.ndarray:
+def _is(m: dict, which: str | None) -> bool:
+    if which is None:
+        return True
+    return (m.get("task") == "rpt") if which == "rpt" else ("dimension" in m)
+
+
+def persona_centroids(A: np.ndarray, meta: list[dict], personas: list[str], context: str,
+                      which: str | None = None) -> np.ndarray:
     out = np.zeros((len(personas), A.shape[1]), np.float64)
     for i, p in enumerate(personas):
-        idx = [k for k, m in enumerate(meta) if m["persona"] == p and m["context"] == context]
+        idx = [k for k, m in enumerate(meta) if m["persona"] == p and m["context"] == context and _is(m, which)]
         out[i] = A[idx].astype(np.float64).mean(0)
     return out
 
@@ -229,22 +236,24 @@ def mantel(D1: np.ndarray, D2: np.ndarray, n_perm: int = 5000, seed: int = 0) ->
 
 
 def landscape(acts_npz: Path, layer: int, personas: list[str], contexts: list[str],
-              mats: dict[str, np.ndarray]) -> dict[str, Any]:
+              mats: dict[str, np.ndarray], which: str | None = "rpt") -> dict[str, Any]:
     """Activation spread of persona centroids by context (convergence in representation) and
     whether activation distances predict behavioural distances (Mantel)."""
     A, meta = load_acts(acts_npz, layer)
     d_idx = personas.index("default")
     norm = float(np.linalg.norm(A.astype(np.float64), axis=1).mean())
     out: dict[str, Any] = {"layer": layer, "act_norm": norm, "contexts": {}}
-    C = {c: persona_centroids(A, meta, personas, c) for c in contexts}
+    contexts = [c for c in contexts if any(m["context"] == c and _is(m, which) for m in meta)]
+    C = {c: persona_centroids(A, meta, personas, c, which) for c in contexts}
     base_pair, base_def = act_spread(C["base"], d_idx)
     for c in contexts:
         pair, dd = act_spread(C[c], d_idx)
         e = {"pairwise_dist_rel": pair / norm, "dist_to_default_rel": dd / norm,
              "pairwise_ratio_vs_base": pair / base_pair, "dist_to_default_ratio_vs_base": dd / base_def}
         if c in mats:
-            beh = _nanmean(mats[c], 1)
-            Db = np.abs(beh[:, None] - beh[None])
+            beh = mats[c] if mats[c].ndim == 2 and mats[c].shape[1] <= 12 else _nanmean(mats[c], 1)
+            beh = beh.reshape(len(personas), -1)
+            Db = np.sqrt(np.nansum((beh[:, None] - beh[None]) ** 2, -1))
             Da = np.sqrt(((C[c][:, None] - C[c][None]) ** 2).sum(-1))
             e["mantel_act_vs_behaviour"] = mantel(Da, Db)
             # does the base-context landscape predict the graded behaviour?
@@ -318,7 +327,7 @@ def track_b(rows_by: dict[tuple[str, str], list[dict]], choice: dict, contexts: 
 
 
 def projections(acts_npz: Path, trait_npz: Path, layer: int, personas: list[str], contexts: list[str],
-                mats: dict[str, np.ndarray] | None = None) -> dict[str, Any]:
+                mats: dict[str, np.ndarray] | None = None, which: str | None = "rpt") -> dict[str, Any]:
     """Trait-direction projection at the last prompt token before the decision, per persona and
     context (in units of the persona-centroid SD along the direction at base)."""
     A, meta = load_acts(acts_npz, layer)
@@ -326,7 +335,8 @@ def projections(acts_npz: Path, trait_npz: Path, layer: int, personas: list[str]
     u /= np.linalg.norm(u)
     proj = A.astype(np.float64) @ u
     out: dict[str, Any] = {"layer": layer, "contexts": {}}
-    P = {c: np.array([proj[[k for k, m in enumerate(meta) if m["persona"] == p and m["context"] == c]].mean()
+    contexts = [c for c in contexts if any(m["context"] == c and _is(m, which) for m in meta)]
+    P = {c: np.array([proj[[k for k, m in enumerate(meta) if m["persona"] == p and m["context"] == c and _is(m, which)]].mean()
                       for p in personas]) for c in contexts}
     sd = float(P["base"].std(ddof=1))
     d_idx = personas.index("default")
@@ -336,8 +346,94 @@ def projections(acts_npz: Path, trait_npz: Path, layer: int, personas: list[str]
         if mats is not None and c in mats:
             from scipy.stats import spearmanr
 
-            beh = _nanmean(mats[c], 1)
-            e["spearman_proj_vs_misreport"] = float(spearmanr(P[c], beh).correlation)
+            beh = _nanmean(mats[c], 1) if mats[c].ndim == 2 and mats[c].shape[1] > 12 else mats[c]
+            if beh.ndim == 1:
+                e["spearman_proj_vs_behaviour"] = float(spearmanr(P[c], beh).correlation)
+            else:
+                e["spearman_proj_vs_behaviour"] = {f"dim{j}": float(spearmanr(P[c], beh[:, j]).correlation)
+                                                   for j in range(beh.shape[1])}
         out["contexts"][c] = e
     out["unit"] = "persona-centroid SD of the projection at base"
+    return out
+
+
+# ---------------------------------------------------------------------------
+# dilemma panel (persona-choice items): profiles for the landscape; Track B on dilemmas
+# ---------------------------------------------------------------------------
+
+def fc_profiles(rows: list[dict], personas: list[str], contexts: list[str], split: str = "all") -> dict[str, np.ndarray]:
+    """context -> [P, n_dims] pole_a rate per persona and dimension (mean over items of item means)."""
+    dims = sorted({r["dimension"] for r in rows})
+    out = {}
+    for c in contexts:
+        M = np.full((len(personas), len(dims)), np.nan)
+        for i, p in enumerate(personas):
+            for j, d in enumerate(dims):
+                acc: dict[str, list] = defaultdict(list)
+                for r in rows:
+                    if (r["context"] == c and r["persona"] == p and r["dimension"] == d and r["valid"]
+                            and (split == "all" or r["split"] == split)):
+                        acc[r["item_id"]].append(r["pole_a"])
+                if acc:
+                    M[i, j] = np.mean([np.mean(v) for v in acc.values()])
+        out[c] = M
+    return out
+
+
+def track_b_fc(rows_by: dict[tuple[str, str], list[dict]], choice: dict, contexts: list[str], n_random: int,
+               seed: int = 0) -> dict[str, Any]:
+    """Steering on dilemma items: pole_a rate (honesty: dishonest option; rules_outcomes: break the
+    rule) per (dimension, persona), effect vs none, trait range +-s, random band, and the context
+    interaction on the range. Items bootstrapped (shared resamples across cells)."""
+    L, s = int(choice["layer"]), float(choice["strength"])
+    fmt = lambda d, x: f"{d}@L{L}_{'+' if x >= 0 else '-'}{abs(x):g}"  # noqa: E731
+    allrows = [r for rs in rows_by.values() for r in rs]
+    dims = sorted({r["dimension"] for r in allrows})
+    personas = sorted({r["persona"] for r in allrows}, key=lambda p: (p != "default", p))
+    out: dict[str, Any] = {"layer": L, "strength": s, "by_dimension": {}}
+    for d in dims:
+        items = sorted({r["item_id"] for r in allrows if r["dimension"] == d})
+        boot = np.random.default_rng(seed).integers(0, len(items), (N_BOOT, len(items)))
+
+        def mat(ctx, cond):   # [P, I]
+            M = np.full((len(personas), len(items)), np.nan)
+            acc: dict[tuple, list] = defaultdict(list)
+            for r in rows_by.get((ctx, cond), []):
+                if r["dimension"] == d and r["valid"]:
+                    acc[(r["persona"], r["item_id"])].append(r["pole_a"])
+            for (p, it), v in acc.items():
+                M[personas.index(p), items.index(it)] = np.mean(v)
+            return M
+
+        e_d: dict[str, Any] = {"contexts": {}}
+        ranges = {}
+        for ctx in contexts:
+            none = mat(ctx, "none")
+            e: dict[str, Any] = {"none": {p: _f(np.nanmean(none[i])) for i, p in enumerate(personas)}}
+            for dname in ["trait"] + [f"random{k}" for k in range(n_random)] + ["traitdpo"]:
+                P_, M_ = mat(ctx, fmt(dname, s)), mat(ctx, fmt(dname, -s))
+                if np.all(np.isnan(P_)) or np.all(np.isnan(M_)):
+                    continue
+                r = P_ - M_                               # [P, I]
+                pooled = _nanmean(r, 0)                   # [I] pooled over personas
+                e[f"range_{dname}"] = {"pooled": _f(np.nanmean(pooled)), "pooled_ci95": _ci(_nanmean(pooled[boot], 1)),
+                                       "by_persona": {p: _f(np.nanmean(r[i])) for i, p in enumerate(personas)}}
+                ranges[(ctx, dname)] = pooled
+                if dname == "trait":
+                    for x in (s / 2, s, -s / 2, -s):
+                        V = mat(ctx, fmt(dname, x))
+                        e[fmt(dname, x)] = {"rate_pooled": _f(np.nanmean(V)),
+                                            "diff_vs_none_pooled": _f(np.nanmean(V - none)),
+                                            "by_persona": {p: _f(np.nanmean(V[i])) for i, p in enumerate(personas)}}
+            band = [abs(e[f"range_random{k}"]["pooled"]) for k in range(n_random) if f"range_random{k}" in e]
+            e["random_band"] = _f(max(band)) if band else None
+            e_d["contexts"][ctx] = e
+        inter = {}
+        for ctx in contexts:
+            if ctx != "base" and ("base", "trait") in ranges and (ctx, "trait") in ranges:
+                dl = ranges[(ctx, "trait")] - ranges[("base", "trait")]
+                inter[ctx] = {"range_diff": _f(np.nanmean(dl)), "ci95": _ci(_nanmean(dl[boot], 1))}
+        e_d["interaction_vs_base"] = inter
+        out["by_dimension"][d] = e_d
+    out["personas"] = personas
     return out

@@ -88,10 +88,18 @@ def analyse(model: str, stage: str, cfg: dict) -> dict:
         crow = [{**r, "format": "constrained", "condition": "none", "parsed": r["valid"], "has_answer": True}
                 for r in fc]
         out["forced_choice"] = choice_summary(crow, n_boot=1000, n_perm=500)
+        fctx = sorted({r["context"] for r in fc}, key=lambda c: ["base", "auto", "human", "neutral"].index(c))
+        fcp = AN.fc_profiles(fc, personas, fctx)
+        out["fc_profiles"] = {"dimensions": sorted({r["dimension"] for r in fc}),
+                              "rates": {c: {p: [None if not np.isfinite(x) else float(x) for x in fcp[c][i]]
+                                            for i, p in enumerate(personas)} for c in fctx}}
+        out["_fcp"] = fcp
     acts = d / "hf" / f"acts_{stage}.npz"
     if acts.exists():
         for L in (24, 36, 48):
-            out[f"landscape_L{L}"] = AN.landscape(acts, L, personas, ctxs, ta["_mats"])
+            out[f"landscape_L{L}"] = AN.landscape(acts, L, personas, ctxs, ta["_mats"], "rpt")
+            if "_fcp" in out:
+                out[f"landscape_fc_L{L}"] = AN.landscape(acts, L, personas, list(out["_fcp"]), out["_fcp"], "fc")
     # Track B
     steer = {}
     for r in rows:
@@ -104,10 +112,19 @@ def analyse(model: str, stage: str, cfg: dict) -> dict:
         out["steer_choice"] = choice
         out["track_b"] = AN.track_b(steer, choice["choice"], cfg["confirm"]["track_b"]["contexts"],
                                     int(cfg["confirm"]["track_b"]["random"]["n"]))
+        fcs = {}
+        for r in rows:
+            if r["benchmark"].startswith("fcsteer_"):
+                fcs.setdefault((r["context"], r["condition"]), []).append(r)
+        if fcs:
+            out["track_b_fc"] = AN.track_b_fc(fcs, choice["choice"], cfg["confirm"]["track_b"]["contexts"],
+                                              int(cfg["confirm"]["track_b"]["random"]["n"]))
     tz = d / "hf" / "trait_dirs_ending.npz"
     if acts.exists() and tz.exists():
         for L in (32, 36, 40):
-            out[f"projection_L{L}"] = AN.projections(acts, tz, L, personas, ctxs, ta["_mats"])
+            out[f"projection_L{L}"] = AN.projections(acts, tz, L, personas, ctxs, ta["_mats"], "rpt")
+            if "_fcp" in out:
+                out[f"projection_fc_L{L}"] = AN.projections(acts, tz, L, personas, list(out["_fcp"]), out["_fcp"], "fc")
     vf = d / "hf" / "vignette_feats.npz"
     if vf.exists():
         out["trait_negation_check"] = negation_check(vf, cfg)

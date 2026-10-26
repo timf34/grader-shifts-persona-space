@@ -38,10 +38,17 @@ pilot:
   track_a: {contexts: [base, auto, neutral], samples: 2, questionnaire_samples: 1}
 
 confirm:
-  track_a: {contexts: [base, auto, human, neutral], samples: 2, questionnaire_samples: 1,
-            questionnaire_contexts: [base, auto, neutral],
-            forced_choice: {contexts: [base, auto, neutral], dimensions: [honesty, rules_outcomes, risk],
-                            samples: 2, format: constrained}}
-  track_b: {contexts: [base, auto, neutral], samples: 2, random: {n: 3}}
+  # Revised after the pilot (PREREG section 6): the reporting task gave no between-persona variance
+  # (OLMo: decided by pressure level; Qwen: floor), so Track A's primary measure is the validated
+  # persona-choice dilemma panel (all 72 items, 6 dimensions); the reporting task is secondary.
+  track_a: {contexts: [base, auto, neutral], samples: 1, questionnaire_samples: 1,
+            questionnaire_contexts: [base, auto],
+            forced_choice: {contexts: [base, auto, human, neutral], dimensions: [risk, self_others, honesty,
+                            rules_outcomes, loyalty_fairness, autonomy_deference], samples: 2, format: constrained}}
+  track_b: {contexts: [base, auto, neutral], samples: 2, random: {n: 3},
+            choice: {personas: [default, saboteur, hacker, contrarian, negotiator],
+                     dimensions: [honesty, rules_outcomes], samples: 2, format: constrained}}
 
-frozen: null    # filled after the pilot (pressure levels kept, steering layer/strength per model)
+frozen:
+  pressures: [mild, strong, explicit, suggest]   # all kept; 'suggest' added after the pilot (exploratory)
+  # steering layer/strength: per model, from its own pilot sweep by the pre-registered rule (steer_choice.json)
