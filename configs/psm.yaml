@@ -16,8 +16,8 @@ steering:
   random_seed: 99
   sweep:                                  # pilot, discovery items, default Assistant, base context
     layers: [32, 36, 40]
-    strengths: [0.1, 0.2, 0.3]
-    random: {n: 2, strengths: [0.2, 0.3]} # at every sweep layer, both signs
+    strengths: [0.1, 0.2, 0.3, 0.6, 1.0]   # 0.6, 1.0 added after OLMo DPO's sweep was null at <= 0.3 (PREREG 6.7)
+    random: {n: 2, strengths: [0.2, 0.3, 0.6, 1.0]} # at every sweep layer, both signs
     samples: 2
   # Pre-registered selection rule (applied by scripts/psm/select_steering.py):
   # for each (layer L, strength s): range = misreport(+s) - misreport(-s) on discovery conflict
@@ -26,7 +26,8 @@ steering:
   # Choose the valid (L, s) maximising range - band. Gate passed iff that excess > 0, range >= 0.10
   # and the item-bootstrap 95% CI of range excludes 0. If the gate fails, confirmation still runs
   # at the fallback (L 36, s 0.2) and is reported as a bounded negative result.
-  select: {min_valid: 0.90, min_control_acc: 0.85, min_range: 0.10, fallback: {layer: 36, strength: 0.2}}
+  select: {min_valid: 0.90, min_control_acc: 0.85, min_range: 0.10, fallback: {layer: 36, strength: 0.2},
+           fallback_rule: largest_valid_at_layer}   # PREREG 6.7: gate failure -> largest valid strength at L36
 
 generation:                               # per model family, the settings established in this repo
   qwen:  {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0,

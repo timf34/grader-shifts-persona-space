@@ -26,6 +26,7 @@ import sys, yaml; print(yaml.safe_load(open("configs/psm.yaml"))["generation"][s
 PY
 )
 LIM=""; [ -n "${LIMIT:-}" ] && LIM="--limit $LIMIT"
+ONLYARG=""; [ -n "${ONLY:-}" ] && ONLYARG="--only $ONLY"     # e.g. ONLY=steer_base (sweep extension)
 TF=""; [ -n "${TRANSFER_FROM:-}" ] && TF="--transfer-from $TRANSFER_FROM"
 psm_upload() {
   upload "$1" --folder "outputs/$MODEL/psm" --path-in-repo "psm/$MODEL"
@@ -83,7 +84,7 @@ step "generation ($STAGE)"
     --message "psm $MODEL $STAGE: checkpoint" >> "$LOGDIR/upload.log" 2>&1; done ) &
 CKPT_PID=$!
 $PY -u scripts/psm/pod.py gen --model "$MODEL" --stage "$STAGE" --concurrency "${CONCURRENCY:-224}" \
-  --parallel "${PARALLEL:-4}" $LIM $TF 2>&1 | tee "$LOGDIR/gen.log"
+  --parallel "${PARALLEL:-4}" $LIM $TF $ONLYARG 2>&1 | tee "$LOGDIR/gen.log"
 GEN_RC=${PIPESTATUS[0]}
 kill "$CKPT_PID" 2>/dev/null; wait "$CKPT_PID" 2>/dev/null
 bash scripts/pod/serve_easysteer.sh stop; ES_SERVER_STARTED=0

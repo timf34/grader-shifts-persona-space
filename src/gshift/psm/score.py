@@ -109,6 +109,10 @@ def select_steering(steer_dir: Path, cfg: dict) -> dict[str, Any]:
         choice, reason = {"layer": best["layer"], "strength": best["strength"]}, "gate passed"
     else:
         choice = dict(sel["fallback"])
+        if sel.get("fallback_rule") == "largest_valid_at_layer":
+            ok = [t["strength"] for t in table if t["layer"] == choice["layer"] and t["valid_ok"]]
+            if ok:
+                choice["strength"] = max(ok)
         reason = ("gate failed: " + ("no valid (layer, strength)" if not best else
                   f"best L{best['layer']} s{best['strength']}: range {best['range']:.3f} {best['range_ci95']}, "
                   f"band {best['random_band']:.3f}") + "; fallback")

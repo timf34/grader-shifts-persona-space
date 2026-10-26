@@ -180,3 +180,19 @@ Q2 panel):
    (`steer_choice.json`, written by the pilot job before confirmation). OLMo final also gets the DPO
    checkpoint's direction (`traitdpo`) at ±s.
 6. **Pressures kept:** mild, strong, explicit, suggest.
+7. **Amendment (≈05:55 UTC): steering sweep extended before confirmation.**
+   * **Why:** OLMo DPO's full pilot sweep was null everywhere. Trait and random directions at L32/36/40 and
+     strengths 0.1–0.3 all gave misreport rates of 0.30–0.33, with unchanged answer lengths. At these
+     strengths the intervention barely perturbs the model; earlier OLMo work found output breaks near 4×.
+     A null from an intervention too weak to perturb anything says nothing about the trait's causal role.
+   * **What changed:**
+     * Strengths 0.6 and 1.0 are added for the trait direction, and for random directions (now 0.2, 0.3,
+       0.6, 1.0), at all three layers. The same applies to every model.
+     * The selection rule is unchanged, including the validity and competence guards that stop
+       incoherent strengths from being chosen.
+     * If the gate fails, the fallback is now the **largest strength at L36 that passes the validity
+       guards** (previously fixed at 0.2), so a negative result reflects the strongest coherent push.
+   * **What was seen beforehand:**
+     * OLMo DPO's complete sweep.
+     * The unsteered and some random conditions of the other models.
+     * No trait-direction conditions of any other model.
