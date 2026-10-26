@@ -16,7 +16,7 @@ MAX_HOURS="${MAX_HOURS:-10}"
 # shellcheck source=scripts/pod/_lib.sh
 source "$(dirname "$0")/_lib.sh"
 pod_init "psm$STAGE" "$MODEL"
-git pull -q --ff-only 2>&1 | tail -n 2; state "repo at $(git rev-parse --short HEAD)"
+state "repo at $(git rev-parse --short HEAD) (pull BEFORE launching: bash -c 'git pull --ff-only && bash scripts/pod/run_psm.sh ...')"
 FAM=$($PY - "$MODEL" <<'PY'
 import sys; print("olmo" if sys.argv[1].startswith("olmo") else "qwen")
 PY
@@ -29,6 +29,13 @@ LIM=""; [ -n "${LIMIT:-}" ] && LIM="--limit $LIMIT"
 TF=""; [ -n "${TRANSFER_FROM:-}" ] && TF="--transfer-from $TRANSFER_FROM"
 psm_upload() {
   upload "$1" --folder "outputs/$MODEL/psm" --path-in-repo "psm/$MODEL"
+}
+bg_upload() { psm_upload "$1" > /dev/null 2>&1 & }        # never blocks the GPU work
+sync_upload() {   # sync_upload <message> [timeout s]: HF commits can stall under contention
+  psm_upload "$1" & local p=$! i
+  for ((i = 0; i < ${2:-1500}; i++)); do kill -0 "$p" 2>/dev/null || { wait "$p"; return 0; }; sleep 1; done
+  kill "$p" 2>/dev/null; pkill -f "upload_hf.py --folder outputs/$MODEL/psm" 2>/dev/null
+  state "!! upload timed out after ${2:-1500}s: $1 (results stay on this pod's disk)"
 }
 
 step "preflight"
@@ -65,25 +72,26 @@ CUDA_VISIBLE_DEVICES=0 $PY -u scripts/psm/pod.py hf --model "$MODEL" --stage "$S
 [ "${PIPESTATUS[0]}" = 0 ] || finish 4
 $PY -u scripts/psm/pod.py vectors --model "$MODEL" $TF 2>&1 | tee "$LOGDIR/vectors.log"
 [ "${PIPESTATUS[0]}" = 0 ] || finish 4
-psm_upload "psm $MODEL $STAGE: HF phase"
+bg_upload "psm $MODEL $STAGE: HF phase"
 
 step "EasySteer server (max_model_len $MAX_MODEL_LEN)"
 ES_SERVER_STARTED=1
 MAX_NUM_SEQS="${MAX_NUM_SEQS:-256}" bash scripts/pod/serve_easysteer.sh "$MODEL" || finish 5
 
 step "generation ($STAGE)"
-( while sleep 900; do psm_upload "psm $MODEL $STAGE: generations (checkpoint)"; done ) &
+( while sleep 900; do timeout 800 $PY -u scripts/upload_hf.py --folder "outputs/$MODEL/psm" --path-in-repo "psm/$MODEL" \
+    --message "psm $MODEL $STAGE: checkpoint" >> "$LOGDIR/upload.log" 2>&1; done ) &
 CKPT_PID=$!
 $PY -u scripts/psm/pod.py gen --model "$MODEL" --stage "$STAGE" --concurrency "${CONCURRENCY:-224}" \
   --parallel "${PARALLEL:-4}" $LIM $TF 2>&1 | tee "$LOGDIR/gen.log"
 GEN_RC=${PIPESTATUS[0]}
 kill "$CKPT_PID" 2>/dev/null; wait "$CKPT_PID" 2>/dev/null
 bash scripts/pod/serve_easysteer.sh stop; ES_SERVER_STARTED=0
-[ "$GEN_RC" = 0 ] || { psm_upload "psm $MODEL $STAGE: partial generations"; finish 6; }
+[ "$GEN_RC" = 0 ] || { sync_upload "psm $MODEL $STAGE: partial generations"; finish 6; }
 
 if [ "$STAGE" = pilot ]; then
   step "pre-registered steering choice"
   $PY -u scripts/psm/pod.py select --model "$MODEL" 2>&1 | tee "$LOGDIR/select.log"
 fi
-psm_upload "psm $MODEL $STAGE: done"
+sync_upload "psm $MODEL $STAGE: done"
 finish 0
