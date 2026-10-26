@@ -119,6 +119,14 @@ def analyse(model: str, stage: str, cfg: dict) -> dict:
         if fcs:
             out["track_b_fc"] = AN.track_b_fc(fcs, choice["choice"], cfg["confirm"]["track_b"]["contexts"],
                                               int(cfg["confirm"]["track_b"]["random"]["n"]))
+        ex = choice.get("exploratory")
+        if ex:   # PREREG 6.8, reported separately
+            exc = {"layer": ex["layer"], "strength": ex["strength"]}
+            out["track_b_exploratory"] = AN.track_b(steer, exc, cfg["confirm"]["track_b"]["contexts"],
+                                                    int(cfg["confirm"]["track_b"]["random"]["n"]))
+            if fcs:
+                out["track_b_fc_exploratory"] = AN.track_b_fc(fcs, exc, cfg["confirm"]["track_b"]["contexts"],
+                                                              int(cfg["confirm"]["track_b"]["random"]["n"]))
     tz = d / "hf" / "trait_dirs_ending.npz"
     if acts.exists() and tz.exists():
         for L in (32, 36, 40):
